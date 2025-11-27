@@ -11,9 +11,32 @@ import plotly.express as px
 
 # --- Configuration and Initialization ---
 
-load_dotenv()  # will read .env in project root
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-EXCHANGE_API_KEY = os.getenv("EXCHANGE_API_KEY")  # added exchange API key
+# Load .env for local development
+load_dotenv()
+
+def get_secret(key, default=None):
+    """
+    Get secret from Streamlit secrets (cloud) or environment variables (local).
+    Priority: Streamlit Secrets > Environment Variables > Default
+    """
+    # Try Streamlit secrets first (for cloud deployment)
+    try:
+        if key in st.secrets:
+            return st.secrets[key]
+    except Exception:
+        pass
+    
+    # Fall back to environment variables (for local development)
+    env_value = os.getenv(key)
+    if env_value:
+        return env_value
+    
+    return default
+
+# Get API Keys using the unified function
+GEMINI_API_KEY = get_secret("GEMINI_API_KEY") or get_secret("GOOGLE_API_KEY")
+EXCHANGE_API_KEY = get_secret("EXCHANGE_API_KEY")
+MODEL_NAME = get_secret("GEMINI_MODEL", "gemini-2.0-flash")
 
 # Session state initialization
 if "chat_history" not in st.session_state:
@@ -31,34 +54,41 @@ if "country_info_data" not in st.session_state:
 if "conversion_info_data" not in st.session_state:
     st.session_state.conversion_info_data = None
 
+# Logging configuration
 logging.basicConfig(level=logging.INFO)
 
-MODEL_NAME = os.getenv("GEMINI_MODEL") or "gemini-2.0-flash"
+# Initialize Gemini
 gemini_configured = False
 model = None
 
-try:
-    genai.configure(api_key=GEMINI_API_KEY)
-    gemini_configured = True
-    logging.info("Gemini API configured successfully.")
+if GEMINI_API_KEY:
     try:
-        ModelClass = getattr(genai, "GenerativeModel", None) or getattr(genai, "Model", None) or getattr(genai, "Client", None)
-        if callable(ModelClass):
-            try:
-                model = ModelClass(MODEL_NAME)
-            except Exception:
+        genai.configure(api_key=GEMINI_API_KEY)
+        gemini_configured = True
+        logging.info("Gemini API configured successfully.")
+        
+        try:
+            ModelClass = getattr(genai, "GenerativeModel", None) or \
+                        getattr(genai, "Model", None) or \
+                        getattr(genai, "Client", None)
+            if callable(ModelClass):
                 try:
-                    model = ModelClass()
+                    model = ModelClass(MODEL_NAME)
                 except Exception:
-                    model = None
-        logging.info("Model instance created: %s", bool(model))
+                    try:
+                        model = ModelClass()
+                    except Exception:
+                        model = None
+            logging.info("Model instance created: %s", bool(model))
+        except Exception as e:
+            logging.debug("Model instantiation skipped: %s", e)
     except Exception as e:
-        logging.debug("Model instantiation skipped: %s", e)
-except Exception as e:
-    logging.error("Error configuring Gemini API: %s", e)
-    gemini_configured = False
-    model = None
-
+        logging.error("Error configuring Gemini API: %s", e)
+        gemini_configured = False
+        model = None
+else:
+    logging.warning("No Gemini API key found. AI features will be disabled.")
+    st.warning("⚠️ Gemini API key not configured. AI features will not work.")
 # Simple continent list used in UI
 CONTINENTS = ["Africa", "Americas", "Asia", "Europe", "Oceania"]
 
