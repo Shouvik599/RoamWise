@@ -36,7 +36,7 @@ def get_secret(key, default=None):
 # Get API Keys using the unified function
 GEMINI_API_KEY = get_secret("GEMINI_API_KEY") or get_secret("GOOGLE_API_KEY")
 EXCHANGE_API_KEY = get_secret("EXCHANGE_API_KEY")
-MODEL_NAME = get_secret("GEMINI_MODEL", "gemini-2.0-flash")
+MODEL_NAME = get_secret("GEMINI_MODEL", "gemini-2.5-pro")
 
 # Session state initialization
 if "chat_history" not in st.session_state:
