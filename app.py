@@ -89,10 +89,72 @@ if GEMINI_API_KEY:
 else:
     logging.warning("No Gemini API key found. AI features will be disabled.")
     st.warning("⚠️ Gemini API key not configured. AI features will not work.")
+
 # Simple continent list used in UI
 CONTINENTS = ["Africa", "Americas", "Asia", "Europe", "Oceania"]
 
+# --- Health Check Functions (Works on Streamlit Cloud) ---
+
+def check_gemini_api():
+    """Check if Gemini API is configured."""
+    if GEMINI_API_KEY:
+        return {"status": "✅ OK", "details": "Gemini API key is configured", "working": True}
+    else:
+        return {"status": "❌ Error", "details": "Gemini API key not found", "working": False}
+
+def check_exchange_api():
+    """Check if Exchange API is accessible."""
+    try:
+        response = requests.get(
+            "https://api.exchangerate.host/latest",
+            params={"base": "USD"},
+            timeout=5
+        )
+        if response.status_code == 200:
+            return {"status": "✅ OK", "details": "Exchange API is accessible", "working": True}
+        else:
+            return {"status": "⚠️ Warning", "details": f"Exchange API returned status {response.status_code}", "working": False}
+    except requests.exceptions.Timeout:
+        return {"status": "⚠️ Warning", "details": "Exchange API request timed out", "working": False}
+    except Exception as e:
+        return {"status": "❌ Error", "details": "Exchange API is unreachable", "working": False}
+
+def check_rest_countries_api():
+    """Check if REST Countries API is accessible."""
+    try:
+        response = requests.get(
+            "https://restcountries.com/v3.1/all",
+            timeout=5
+        )
+        if response.status_code == 200:
+            return {"status": "✅ OK", "details": "REST Countries API is accessible", "working": True}
+        else:
+            return {"status": "⚠️ Warning", "details": f"REST Countries API returned status {response.status_code}", "working": False}
+    except requests.exceptions.Timeout:
+        return {"status": "⚠️ Warning", "details": "REST Countries API request timed out", "working": False}
+    except Exception as e:
+        return {"status": "❌ Error", "details": "REST Countries API is unreachable", "working": False}
+
+def check_gemini_model():
+    """Check if Gemini model is properly initialized."""
+    if gemini_configured and model:
+        return {"status": "✅ OK", "details": "Gemini model is initialized and ready", "working": True}
+    else:
+        return {"status": "⚠️ Warning", "details": "Gemini model not initialized", "working": False}
+
+@st.cache_data(ttl=60)
+def get_all_health_checks():
+    """Run all health checks and return results."""
+    return {
+        "gemini_api": check_gemini_api(),
+        "exchange_api": check_exchange_api(),
+        "rest_countries_api": check_rest_countries_api(),
+        "gemini_model": check_gemini_model(),
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+    }
+
 # --- Utility Functions ---
+
 
 def clean_json_response(text):
     """Clean and parse JSON from AI response."""
@@ -1453,115 +1515,229 @@ st.set_page_config(page_title="RoamWise - Travel Guide", layout="wide")
 st.title("🌍 RoamWise - Your Travel Companion")
 st.markdown("Discover amazing destinations and plan your next adventure!")
 
-# Sidebar for destination selection
-st.sidebar.header("🗺️ Select Your Destination")
-selected_continent = st.sidebar.selectbox("Choose a Continent:", CONTINENTS)
+# Add page selector in sidebar
+page = st.sidebar.radio(
+    "📍 Navigation",
+    ["Travel Planner", "🏥 Health Check"],
+    index=0
+)
 
-# Get countries for selected continent
-countries = get_countries_for_continent(selected_continent)
-
-if countries:
-    selected_country = st.sidebar.selectbox("Choose a Country:", countries)
+# Health Check Page
+if page == "🏥 Health Check":
+    st.subheader("🏥 System Health Check")
+    st.markdown("Monitor the status of all RoamWise components and external APIs.")
     
-    # Clear chat history when country changes
-    if "last_country" not in st.session_state:
-        st.session_state.last_country = selected_country
-    elif st.session_state.last_country != selected_country:
-        st.session_state.chat_history = []
-        st.session_state.last_country = selected_country
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.write("Checking system health...")
+    with col2:
+        if st.button("🔄 Refresh", key="refresh_health"):
+            st.cache_data.clear()
+            st.rerun()
     
-    # Main content area with tabs
-    st.subheader(f"✨ Exploring {selected_country}")
+    st.divider()
     
-    # Create tabs for different features
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "🗺️ Travel Plan", 
-        "📅 Itinerary", 
-        "💬 AI Chat",
-        "💰 Budget",
-        "🛡️ Safety",
-        "📸 Landmark ID"
+    # Get health check results
+    health_results = get_all_health_checks()
+    
+    # Display overall status
+    all_working = all(check["working"] for check in [
+        health_results["gemini_api"],
+        health_results["exchange_api"],
+        health_results["rest_countries_api"],
+        health_results["gemini_model"]
     ])
     
-    with tab1:
-        # Travel Plan Tab
-        st.write("Get a comprehensive travel guide for your destination")
+    if all_working:
+        st.success("### ✅ All Systems Operational")
+    else:
+        any_error = any(
+            "❌" in check["status"] for check in [
+                health_results["gemini_api"],
+                health_results["exchange_api"],
+                health_results["rest_countries_api"],
+                health_results["gemini_model"]
+            ]
+        )
+        if any_error:
+            st.error("### ❌ Some Systems Have Critical Issues")
+        else:
+            st.warning("### ⚠️ Some Components May Have Issues")
+    
+    st.caption(f"Last checked: {health_results['timestamp']}")
+    st.divider()
+    
+    # Display individual component status
+    st.subheader("Component Status")
+    
+    # Create columns for better layout
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write("**🤖 Gemini API**")
+        gemini_check = health_results["gemini_api"]
+        if "✅" in gemini_check["status"]:
+            st.success(gemini_check["status"])
+        elif "❌" in gemini_check["status"]:
+            st.error(gemini_check["status"])
+        else:
+            st.warning(gemini_check["status"])
+        st.caption(gemini_check["details"])
         
-        if st.button("📋 Get Travel Plan", key="fetch_details"):
-            with st.spinner(f"Generating travel plan for {selected_country}..."):
-                # Fetch country info
-                country_info = get_country_info(selected_country)
-                
-                if country_info.get("error"):
-                    st.error(f"Error: {country_info['error']}")
-                else:
-                    capital = country_info["capital"]
-                    currency_code = country_info["currency_code"]
-                    currency_name = country_info["currency_name"]
-                    
-                    # Fetch currency conversion
-                    conversion_info = get_currency_conversion_to_inr(currency_code)
-                    
-                    # Generate travel plan
-                    travel_plan = generate_gemini_travel_plan(selected_country)
-                    
-                    # Store in session state
-                    st.session_state.country_info_data = country_info
-                    st.session_state.conversion_info_data = conversion_info
-                    st.session_state.travel_plan_data = travel_plan
+        st.write("**🔄 Gemini Model**")
+        model_check = health_results["gemini_model"]
+        if "✅" in model_check["status"]:
+            st.success(model_check["status"])
+        elif "❌" in model_check["status"]:
+            st.error(model_check["status"])
+        else:
+            st.warning(model_check["status"])
+        st.caption(model_check["details"])
+    
+    with col2:
+        st.write("**💱 Exchange Rate API**")
+        exchange_check = health_results["exchange_api"]
+        if "✅" in exchange_check["status"]:
+            st.success(exchange_check["status"])
+        elif "❌" in exchange_check["status"]:
+            st.error(exchange_check["status"])
+        else:
+            st.warning(exchange_check["status"])
+        st.caption(exchange_check["details"])
         
-        # Display stored travel plan data
-        if st.session_state.get("travel_plan_data"):
-            country_info = st.session_state.country_info_data
-            conversion_info = st.session_state.conversion_info_data
-            travel_plan = st.session_state.travel_plan_data
+        st.write("**🌍 Countries Data API**")
+        countries_check = health_results["rest_countries_api"]
+        if "✅" in countries_check["status"]:
+            st.success(countries_check["status"])
+        elif "❌" in countries_check["status"]:
+            st.error(countries_check["status"])
+        else:
+            st.warning(countries_check["status"])
+        st.caption(countries_check["details"])
+    
+    st.divider()
+    st.info("""
+    **How to interpret the status:**
+    - ✅ **OK**: Component is working properly
+    - ⚠️ **Warning**: Component may have issues but still operational
+    - ❌ **Error**: Component is unavailable - features may not work
+    
+    **Tips:**
+    - Refresh to get the latest status
+    - API issues are usually temporary and resolve automatically
+    - Check your internet connection if multiple APIs fail
+    """)
+
+# Travel Planner Page
+else:
+    # Sidebar for destination selection
+    st.sidebar.header("🗺️ Select Your Destination")
+    selected_continent = st.sidebar.selectbox("Choose a Continent:", CONTINENTS)
+
+    # Get countries for selected continent
+    countries = get_countries_for_continent(selected_continent)
+
+    if countries:
+        selected_country = st.sidebar.selectbox("Choose a Country:", countries)
+        
+        # Clear chat history when country changes
+        if "last_country" not in st.session_state:
+            st.session_state.last_country = selected_country
+        elif st.session_state.last_country != selected_country:
+            st.session_state.chat_history = []
+            st.session_state.last_country = selected_country
+        
+        # Main content area with tabs
+        st.subheader(f"✨ Exploring {selected_country}")
+        
+        # Create tabs for different features
+        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+            "🗺️ Travel Plan", 
+            "📅 Itinerary", 
+            "💬 AI Chat",
+            "💰 Budget",
+            "🛡️ Safety",
+            "📸 Landmark ID"
+        ])
+        
+        with tab1:
+            # Travel Plan Tab
+            st.write("Get a comprehensive travel guide for your destination")
             
-            # Display country information
-            st.divider()
-            col_info1, col_info2, col_info3 = st.columns(3)
+            if st.button("📋 Get Travel Plan", key="fetch_details"):
+                with st.spinner(f"Generating travel plan for {selected_country}..."):
+                    # Fetch country info
+                    country_info = get_country_info(selected_country)
+                    
+                    if country_info.get("error"):
+                        st.error(f"Error: {country_info['error']}")
+                    else:
+                        capital = country_info["capital"]
+                        currency_code = country_info["currency_code"]
+                        currency_name = country_info["currency_name"]
+                        
+                        # Fetch currency conversion
+                        conversion_info = get_currency_conversion_to_inr(currency_code)
+                        
+                        # Generate travel plan
+                        travel_plan = generate_gemini_travel_plan(selected_country)
+                        
+                        # Store in session state
+                        st.session_state.country_info_data = country_info
+                        st.session_state.conversion_info_data = conversion_info
+                        st.session_state.travel_plan_data = travel_plan
             
-            with col_info1:
-                st.metric("🏛️ Capital", country_info["capital"])
-            
-            with col_info2:
-                st.metric("💱 Currency", f"{country_info['currency_code']} - {country_info['currency_name']}")
-            
-            with col_info3:
-                if conversion_info.get("rate"):
-                    st.metric("📈 Exchange Rate", f"1 {country_info['currency_code']} = ₹{conversion_info['rate']:.2f}")
-                else:
-                    st.warning("Conversion rate unavailable")
-            
-            st.divider()
-            
-            # Display travel plan
-            if isinstance(travel_plan, dict) and not travel_plan.get("error"):
-                # Cities
-                if "cities" in travel_plan:
-                    st.subheader("🏙️ Must-Visit Cities")
-                    for city in travel_plan["cities"]:
-                        with st.expander(f"📍 {city.get('name', 'Unknown')}"):
-                            st.write(city.get("reason", ""))
-                            
-                            # Activities for this city
-                            if "activities" in travel_plan and city.get("name") in travel_plan["activities"]:
-                                st.write("**🎯 Activities:**")
-                                for activity in travel_plan["activities"][city.get("name")]:
-                                    price = activity.get("price_inr", 0)
-                                    price_str = f"₹{price}" if price > 0 else "Free"
-                                    st.write(f"• **{activity.get('name', 'Activity')}** ({price_str})")
-                                    st.write(f"  _{activity.get('description', '')}_")
+            # Display stored travel plan data
+            if st.session_state.get("travel_plan_data"):
+                country_info = st.session_state.country_info_data
+                conversion_info = st.session_state.conversion_info_data
+                travel_plan = st.session_state.travel_plan_data
                 
-                # Foods
-                if "foods" in travel_plan:
-                    st.subheader("🍽️ Must-Try Foods")
-                    food_list = travel_plan["foods"]
-                    cols = st.columns(min(3, len(food_list)))
-                    for idx, food in enumerate(food_list):
-                        with cols[idx % len(cols)]:
-                            st.write(f"**{food.get('name', 'Food')}**")
-                            st.write(food.get("description", ""))
+                # Display country information
+                st.divider()
+                col_info1, col_info2, col_info3 = st.columns(3)
                 
+                with col_info1:
+                    st.metric("🏛️ Capital", country_info["capital"])
+                
+                with col_info2:
+                    st.metric("💱 Currency", f"{country_info['currency_code']} - {country_info['currency_name']}")
+                
+                with col_info3:
+                    if conversion_info.get("rate"):
+                        st.metric("📈 Exchange Rate", f"1 {country_info['currency_code']} = ₹{conversion_info['rate']:.2f}")
+                    else:
+                        st.warning("Conversion rate unavailable")
+                
+                st.divider()
+                
+                # Display travel plan
+                if isinstance(travel_plan, dict) and not travel_plan.get("error"):
+                    # Cities
+                    if "cities" in travel_plan:
+                        st.subheader("🏙️ Must-Visit Cities")
+                        for city in travel_plan["cities"]:
+                            with st.expander(f"📍 {city.get('name', 'Unknown')}"):
+                                st.write(city.get("reason", ""))
+                                
+                                # Activities for this city
+                                if "activities" in travel_plan and city.get("name") in travel_plan["activities"]:
+                                    st.write("**🎯 Activities:**")
+                                    for activity in travel_plan["activities"][city.get("name")]:
+                                        price = activity.get("price_inr", 0)
+                                        price_str = f"₹{price}" if price > 0 else "Free"
+                                        st.write(f"• **{activity.get('name', 'Activity')}** ({price_str})")
+                                        st.write(f"  _{activity.get('description', '')}_")
+                    
+                    # Foods
+                    if "foods" in travel_plan:
+                        st.subheader("🍽️ Must-Try Foods")
+                        food_list = travel_plan["foods"]
+                        cols = st.columns(min(3, len(food_list)))
+                        for idx, food in enumerate(food_list):
+                            with cols[idx % len(cols)]:
+                                st.write(f"**{food.get('name', 'Food')}**")
+                                st.write(food.get("description", ""))
                 # Tips
                 if "tips" in travel_plan:
                     st.subheader("💡 Travel Tips")
