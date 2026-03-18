@@ -1688,30 +1688,28 @@ else:
                         st.session_state.travel_plan_data = travel_plan
             
             # Display stored travel plan data
-            if st.session_state.get("travel_plan_data"):
-                country_info = st.session_state.country_info_data
-                conversion_info = st.session_state.conversion_info_data
-                travel_plan = st.session_state.travel_plan_data
-                
+            travel_plan = st.session_state.get("travel_plan_data")
+            country_info = st.session_state.get("country_info_data", {})
+            conversion_info = st.session_state.get("conversion_info_data", {})
+            
+            if travel_plan:
                 # Display country information
                 st.divider()
                 col_info1, col_info2, col_info3 = st.columns(3)
                 
                 with col_info1:
-                    st.metric("🏛️ Capital", country_info["capital"])
-                
+                    st.metric("🏛️ Capital", country_info.get("capital", "N/A"))
                 with col_info2:
-                    st.metric("💱 Currency", f"{country_info['currency_code']} - {country_info['currency_name']}")
-                
+                    st.metric("💱 Currency", f"{country_info.get('currency_code', 'N/A')} - {country_info.get('currency_name', 'N/A')}")
                 with col_info3:
                     if conversion_info.get("rate"):
-                        st.metric("📈 Exchange Rate", f"1 {country_info['currency_code']} = ₹{conversion_info['rate']:.2f}")
+                        st.metric("📈 Exchange Rate", f"1 {country_info.get('currency_code', '')} = ₹{conversion_info['rate']:.2f}")
                     else:
                         st.warning("Conversion rate unavailable")
                 
                 st.divider()
                 
-                # Display travel plan
+                # Display travel plan content
                 if isinstance(travel_plan, dict) and not travel_plan.get("error"):
                     # Cities
                     if "cities" in travel_plan:
@@ -1738,63 +1736,71 @@ else:
                             with cols[idx % len(cols)]:
                                 st.write(f"**{food.get('name', 'Food')}**")
                                 st.write(food.get("description", ""))
-                # Tips
-                if "tips" in travel_plan:
-                    st.subheader("💡 Travel Tips")
-                    for tip in travel_plan["tips"]:
-                        st.info(tip)
+                    
+                    # Tips
+                    if "tips" in travel_plan:
+                        st.subheader("💡 Travel Tips")
+                        for tip in travel_plan["tips"]:
+                            st.info(tip)
+                else:
+                    if isinstance(travel_plan, dict) and travel_plan.get("error"):
+                        st.error(f"Travel plan error: {travel_plan['error']}")
+                    else:
+                        st.warning("Travel plan data incomplete.")
             else:
-                error_msg = travel_plan.get("error") if isinstance(travel_plan, dict) else str(travel_plan)
-                st.error(f"Could not generate travel plan: {error_msg}")
-    
-    with tab2:
-        render_itinerary_planner(selected_country)
-    
-    with tab3:
-        render_travel_chatbot(selected_country)
-    
-    with tab4:
-        render_budget_planner(selected_country)
-    
-    with tab5:
-        render_safety_advisor(selected_country)
-    
-    with tab6:
-        render_landmark_recognition(selected_country)
-    
-    # Sidebar additional tools
-    st.sidebar.divider()
-    st.sidebar.subheader("🛠️ More Tools")
-    
-    # Tool selection in sidebar
-    tool_selection = st.sidebar.radio(
-        "Select a tool:",
-        ["None", "🎒 Packing List", "🌍 Compare Destinations", "🗣️ Language Helper", "🌦️ Weather Activities"],
-        key="tool_selection"
-    )
-    
-    # Display selected tool in main area below tabs
-    if tool_selection != "None":
-        st.divider()
+                st.error("No travel plan data available. Click 'Get Travel Plan' to generate. If issues persist, check Health Check tab.")
         
-        if tool_selection == "🎒 Packing List":
-            render_packing_list(selected_country)
+        with tab2:
+            render_itinerary_planner(selected_country)
         
-        elif tool_selection == "🌍 Compare Destinations":
-            render_destination_comparison()
+        with tab3:
+            render_travel_chatbot(selected_country)
         
-        elif tool_selection == "🗣️ Language Helper":
-            render_language_helper(selected_country)
+        with tab4:
+            render_budget_planner(selected_country)
         
-        elif tool_selection == "🌦️ Weather Activities":
-            render_weather_activities(selected_country)
+        with tab5:
+            render_safety_advisor(selected_country)
+        
+        with tab6:
+            render_landmark_recognition(selected_country)
+        
+        # Sidebar additional tools
+        st.sidebar.divider()
+        st.sidebar.subheader("🛠️ More Tools")
+        
+        # Tool selection in sidebar
+        tool_selection = st.sidebar.radio(
+            "Select a tool:",
+            ["None", "🎒 Packing List", "🌍 Compare Destinations", "🗣️ Language Helper", "🌦️ Weather Activities"],
+            key="tool_selection"
+        )
+        
+        # Display selected tool in main area below tabs
+        if tool_selection != "None":
+            st.divider()
+            
+            if tool_selection == "🎒 Packing List":
+                render_packing_list(selected_country)
+            
+            elif tool_selection == "🌍 Compare Destinations":
+                render_destination_comparison()
+            
+            elif tool_selection == "🗣️ Language Helper":
+                render_language_helper(selected_country)
+            
+            elif tool_selection == "🌦️ Weather Activities":
+                render_weather_activities(selected_country)
 
     else:
         st.warning(f"No countries found for {selected_continent}")
 
 # Footer
 st.sidebar.divider()
-st.sidebar.markdown("---")
-st.sidebar.markdown("**🌍 RoamWise**")
-st.sidebar.markdown("_Your AI-powered travel companion_")
+st.sidebar.info(
+    """
+    **🌍 RoamWise**  
+    _Your AI-powered travel companion_  
+    """
+)
 st.sidebar.markdown(f"📅 {datetime.now().strftime('%B %d, %Y')}")
