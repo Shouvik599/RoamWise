@@ -1450,13 +1450,6 @@ def render_weather_activities(country):
 
 st.set_page_config(page_title="RoamWise - Travel Guide", layout="wide")
 
-# Logo
-try:
-    logo = Image.open("Logo.png")
-    st.image(logo, width=200)
-except Exception:
-    pass
-
 st.title("🌍 RoamWise - Your Travel Companion")
 st.markdown("Discover amazing destinations and plan your next adventure!")
 
