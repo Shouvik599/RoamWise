@@ -1789,8 +1789,8 @@ else:
         elif tool_selection == "🌦️ Weather Activities":
             render_weather_activities(selected_country)
 
-else:
-    st.warning(f"No countries found for {selected_continent}")
+    else:
+        st.warning(f"No countries found for {selected_continent}")
 
 # Footer
 st.sidebar.divider()
