@@ -357,6 +357,7 @@ def call_nvidia_vision_llm(
 
 # ──────────────────────────────────────────────
 # Prompt-based generation functions
+# These functions construct specific prompts for different features and call the NVIDIA LLM.
 # ──────────────────────────────────────────────
 
 def _generate_travel_plan(country: str) -> dict:
