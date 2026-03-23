@@ -1,7 +1,7 @@
 streamlit
 requests
 python-dotenv
-google-generativeai
+openai
 Pillow
 plotly
 Flask
