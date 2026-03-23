@@ -1,0 +1,2072 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RoamWise - AI Travel Companion</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* ── CSS Reset & Variables ── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-primary: #0f1117;
+            --bg-secondary: #1a1c25;
+            --bg-card: #21232d;
+            --bg-card-hover: #282a36;
+            --bg-input: #2c2e3a;
+            --bg-sidebar: #161821;
+            --text-primary: #e6e8f0;
+            --text-secondary: #a0a4b8;
+            --text-muted: #6b6f82;
+            --accent: #6c63ff;
+            --accent-hover: #5a52e0;
+            --accent-light: rgba(108, 99, 255, 0.15);
+            --success: #2ecc71;
+            --success-bg: rgba(46, 204, 113, 0.12);
+            --warning: #f39c12;
+            --warning-bg: rgba(243, 156, 18, 0.12);
+            --danger: #e74c3c;
+            --danger-bg: rgba(231, 76, 60, 0.12);
+            --info: #3498db;
+            --info-bg: rgba(52, 152, 219, 0.12);
+            --border: #2d3040;
+            --border-light: #383b4e;
+            --radius: 12px;
+            --radius-sm: 8px;
+            --radius-xs: 6px;
+            --shadow: 0 4px 24px rgba(0,0,0,0.3);
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.2);
+            --transition: all 0.25s ease;
+            --sidebar-width: 280px;
+            --header-height: 64px;
+            --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        html { font-size: 15px; scroll-behavior: smooth; }
+        body {
+            font-family: var(--font);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* ── Layout ── */
+        .app-container { display: flex; min-height: 100vh; }
+
+        /* ── Sidebar ── */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border);
+            position: fixed;
+            top: 0; left: 0; bottom: 0;
+            overflow-y: auto;
+            z-index: 100;
+            transition: transform 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-header {
+            padding: 24px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        .sidebar-header h1 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent), #a78bfa, #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .sidebar-header p {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .sidebar-section { padding: 16px 12px 8px; }
+        .sidebar-section-title {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: var(--text-muted);
+            padding: 0 8px;
+            margin-bottom: 8px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 0.88rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            border: none;
+            background: transparent;
+            width: 100%;
+            text-align: left;
+        }
+        .nav-item:hover { background: var(--accent-light); color: var(--text-primary); }
+        .nav-item.active {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 2px 12px rgba(108,99,255,0.3);
+        }
+        .nav-item .icon { font-size: 1.15rem; width: 24px; text-align: center; }
+
+        .sidebar-footer {
+            margin-top: auto;
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+        }
+        .sidebar-footer .date {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* ── Destination Selector (in sidebar) ── */
+        .dest-selector { padding: 0 12px 12px; }
+        .dest-selector label {
+            display: block;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+        .dest-selector select {
+            width: 100%;
+            padding: 8px 10px;
+            background: var(--bg-input);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xs);
+            font-family: var(--font);
+            font-size: 0.85rem;
+            outline: none;
+            cursor: pointer;
+            margin-bottom: 8px;
+        }
+        .dest-selector select:focus { border-color: var(--accent); }
+
+        /* ── Main Content ── */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            flex: 1;
+            padding: 32px 40px;
+            min-height: 100vh;
+        }
+
+        /* ── Mobile Toggle ── */
+        .mobile-toggle {
+            display: none;
+            position: fixed;
+            top: 16px; left: 16px;
+            z-index: 200;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            width: 44px; height: 44px;
+            border-radius: var(--radius-sm);
+            font-size: 1.3rem;
+            cursor: pointer;
+            box-shadow: var(--shadow-sm);
+        }
+        .overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 90;
+        }
+
+        /* ── Page Header ── */
+        .page-header { margin-bottom: 28px; }
+        .page-header h2 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .page-header p { color: var(--text-secondary); font-size: 0.9rem; }
+
+        /* ── Sections ── */
+        .section { display: none; }
+        .section.active { display: block; animation: fadeIn 0.3s ease; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── Cards ── */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow-sm);
+        }
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        .card-header h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        /* ── Metrics Grid ── */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .metric-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            text-align: center;
+        }
+        .metric-card .label {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 6px;
+        }
+        .metric-card .value {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        /* ── Forms ── */
+        .form-group { margin-bottom: 16px; }
+        .form-group label {
+            display: block;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg-input);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xs);
+            font-family: var(--font);
+            font-size: 0.88rem;
+            outline: none;
+            transition: var(--transition);
+        }
+        input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
+        textarea { min-height: 80px; resize: vertical; }
+
+        /* ── Buttons ── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 22px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-family: var(--font);
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 2px 12px rgba(108,99,255,0.25);
+        }
+        .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-danger { background: var(--danger); color: #fff; }
+        .btn-danger:hover { background: #c0392b; }
+        .btn-secondary {
+            background: var(--bg-input);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:hover { background: var(--bg-card-hover); }
+        .btn-sm { padding: 6px 14px; font-size: 0.8rem; }
+
+        /* ── Alerts ── */
+        .alert {
+            padding: 14px 18px;
+            border-radius: var(--radius-sm);
+            margin-bottom: 16px;
+            font-size: 0.88rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .alert-success { background: var(--success-bg); border: 1px solid rgba(46,204,113,0.3); color: var(--success); }
+        .alert-warning { background: var(--warning-bg); border: 1px solid rgba(243,156,18,0.3); color: var(--warning); }
+        .alert-danger { background: var(--danger-bg); border: 1px solid rgba(231,76,60,0.3); color: var(--danger); }
+        .alert-info { background: var(--info-bg); border: 1px solid rgba(52,152,219,0.3); color: var(--info); }
+
+        /* ── Health Check ── */
+        .health-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 16px;
+        }
+        .health-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+        }
+        .health-card .hc-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+        .health-card .hc-status { font-size: 0.85rem; margin-bottom: 4px; }
+        .health-card .hc-details { font-size: 0.78rem; color: var(--text-muted); }
+
+        /* ── Chat ── */
+        .chat-container {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 520px;
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        .chat-bubble {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 16px;
+            margin-bottom: 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+        .chat-bubble.user {
+            background: var(--accent);
+            color: #fff;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+        .chat-bubble.assistant {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            border-bottom-left-radius: 4px;
+        }
+        .chat-input-area {
+            display: flex;
+            gap: 10px;
+            padding: 16px;
+            border-top: 1px solid var(--border);
+            background: var(--bg-card);
+        }
+        .chat-input-area input {
+            flex: 1;
+        }
+
+        /* ── Expandable / Accordion ── */
+        .accordion-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+        .accordion-header {
+            padding: 14px 18px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            font-size: 0.92rem;
+            transition: var(--transition);
+        }
+        .accordion-header:hover { background: var(--bg-card-hover); }
+        .accordion-header .arrow {
+            transition: transform 0.2s;
+            font-size: 0.8rem;
+        }
+        .accordion-item.open .accordion-header .arrow { transform: rotate(180deg); }
+        .accordion-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        .accordion-item.open .accordion-body { max-height: 2000px; }
+        .accordion-body-inner {
+            padding: 0 18px 18px;
+            color: var(--text-secondary);
+            font-size: 0.88rem;
+            line-height: 1.7;
+        }
+
+        /* ── Tags ── */
+        .tag {
+            display: inline-block;
+            padding: 4px 10px;
+            background: var(--accent-light);
+            color: var(--accent);
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin: 2px 4px 2px 0;
+        }
+
+        /* ── Comparison Table ── */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+        .comparison-table th, .comparison-table td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.88rem;
+        }
+        .comparison-table th {
+            background: var(--bg-input);
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+        }
+        .comparison-table td { color: var(--text-secondary); }
+
+        /* ── Image Upload ── */
+        .upload-zone {
+            border: 2px dashed var(--border-light);
+            border-radius: var(--radius);
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: var(--transition);
+            background: var(--bg-secondary);
+        }
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: var(--accent);
+            background: var(--accent-light);
+        }
+        .upload-zone input[type="file"] { display: none; }
+        .upload-zone .icon { font-size: 2.5rem; margin-bottom: 10px; }
+        .upload-zone p { color: var(--text-muted); font-size: 0.85rem; }
+        .preview-image {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: var(--radius-sm);
+            margin-top: 16px;
+            border: 1px solid var(--border);
+        }
+
+        /* ── Loading Spinner ── */
+        .spinner {
+            display: inline-block;
+            width: 20px; height: 20px;
+            border: 3px solid rgba(255,255,255,0.2);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        .spinner-lg { width: 36px; height: 36px; border-width: 4px; }
+        .spinner-accent { border-top-color: var(--accent); border-color: var(--accent-light); }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loading-overlay {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            padding: 40px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* ── Results container ── */
+        .result-container { margin-top: 20px; }
+
+        /* ── Packing Checklist ── */
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.88rem;
+            color: var(--text-secondary);
+        }
+        .checklist-item input[type="checkbox"] {
+            width: 18px; height: 18px;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+        .checklist-item.checked { text-decoration: line-through; opacity: 0.5; }
+
+        /* ── Phrase Card ── */
+        .phrase-card {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            padding: 12px 16px;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-sm);
+            margin-bottom: 8px;
+            border: 1px solid var(--border);
+        }
+        .phrase-card .english { font-weight: 600; color: var(--text-primary); }
+        .phrase-card .local { color: var(--accent); }
+        .phrase-card .pronunciation {
+            grid-column: 1 / -1;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        /* ── Tabs ── */
+        .tab-bar {
+            display: flex;
+            gap: 0;
+            border-bottom: 2px solid var(--border);
+            margin-bottom: 20px;
+            overflow-x: auto;
+        }
+        .tab-btn {
+            padding: 10px 20px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-family: var(--font);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: var(--transition);
+            white-space: nowrap;
+        }
+        .tab-btn:hover { color: var(--text-primary); }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.2s ease; }
+
+        /* ── Multi-select chips ── */
+        .chip-selector { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+        .chip {
+            padding: 6px 14px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 0.82rem;
+            cursor: pointer;
+            transition: var(--transition);
+            color: var(--text-secondary);
+            user-select: none;
+        }
+        .chip:hover { border-color: var(--accent); }
+        .chip.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+        /* ── Score bar ── */
+        .score-bar-container { margin: 6px 0; }
+        .score-bar-bg {
+            background: var(--bg-input);
+            border-radius: 10px;
+            height: 10px;
+            overflow: hidden;
+        }
+        .score-bar-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.6s ease;
+        }
+        .score-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .overlay.open { display: block; }
+            .mobile-toggle { display: flex; align-items: center; justify-content: center; }
+            .main-content { margin-left: 0; padding: 20px 16px; padding-top: 70px; }
+            .form-row { grid-template-columns: 1fr; }
+            .metrics-grid { grid-template-columns: 1fr 1fr; }
+            .chat-bubble { max-width: 90%; }
+        }
+
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+    </style>
+</head>
+<body>
+
+<!-- Mobile Toggle -->
+<button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
+<div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+
+<div class="app-container">
+    <!-- ═══════════ SIDEBAR ═══════════ -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h1>🌍 RoamWise</h1>
+            <p>AI-Powered Travel Companion</p>
+        </div>
+
+        <!-- Destination Selector -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">🗺️ Destination</div>
+        </div>
+        <div class="dest-selector">
+            <label for="continent-select">Continent</label>
+            <select id="continent-select" onchange="loadCountries()">
+                <option value="">Select continent…</option>
+            </select>
+            <label for="country-select">Country</label>
+            <select id="country-select" onchange="onCountryChange()">
+                <option value="">Select country…</option>
+            </select>
+        </div>
+
+        <!-- Navigation -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">📍 Navigation</div>
+        </div>
+        <nav>
+            <button class="nav-item active" onclick="showSection('travel-plan', this)">
+                <span class="icon">🗺️</span> Travel Plan
+            </button>
+            <button class="nav-item" onclick="showSection('itinerary', this)">
+                <span class="icon">📅</span> Itinerary
+            </button>
+            <button class="nav-item" onclick="showSection('chat', this)">
+                <span class="icon">💬</span> AI Chat
+            </button>
+            <button class="nav-item" onclick="showSection('budget', this)">
+                <span class="icon">💰</span> Budget
+            </button>
+            <button class="nav-item" onclick="showSection('safety', this)">
+                <span class="icon">🛡️</span> Safety & Visa
+            </button>
+            <button class="nav-item" onclick="showSection('landmark', this)">
+                <span class="icon">📸</span> Landmark ID
+            </button>
+        </nav>
+
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">🛠️ More Tools</div>
+        </div>
+        <nav>
+            <button class="nav-item" onclick="showSection('packing', this)">
+                <span class="icon">🎒</span> Packing List
+            </button>
+            <button class="nav-item" onclick="showSection('compare', this)">
+                <span class="icon">⚖️</span> Compare
+            </button>
+            <button class="nav-item" onclick="showSection('phrases', this)">
+                <span class="icon">🗣️</span> Phrases
+            </button>
+            <button class="nav-item" onclick="showSection('weather', this)">
+                <span class="icon">🌦️</span> Weather
+            </button>
+            <button class="nav-item" onclick="showSection('health', this)">
+                <span class="icon">🏥</span> Health Check
+            </button>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="date" id="current-date"></div>
+        </div>
+    </aside>
+
+    <!-- ═══════════ MAIN CONTENT ═══════════ -->
+    <main class="main-content">
+
+        <!-- ── Travel Plan ── -->
+        <div class="section active" id="section-travel-plan">
+            <div class="page-header">
+                <h2>🗺️ Travel Plan</h2>
+                <p>Get a comprehensive AI-generated travel guide for your destination</p>
+            </div>
+            <div class="card">
+                <button class="btn btn-primary" onclick="fetchTravelPlan()" id="btn-travel-plan">
+                    📋 Generate Travel Plan
+                </button>
+            </div>
+            <div id="travel-plan-result" class="result-container"></div>
+        </div>
+
+        <!-- ── Itinerary ── -->
+        <div class="section" id="section-itinerary">
+            <div class="page-header">
+                <h2>📅 AI Itinerary Planner</h2>
+                <p>Create a personalized day-by-day itinerary</p>
+            </div>
+            <div class="card">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Trip Duration (days)</label>
+                        <input type="number" id="itin-days" value="7" min="1" max="30">
+                    </div>
+                    <div class="form-group">
+                        <label>Travel Style</label>
+                        <select id="itin-style">
+                            <option value="adventure">Adventure</option>
+                            <option value="relaxation">Relaxation</option>
+                            <option value="cultural" selected>Cultural</option>
+                            <option value="family">Family</option>
+                            <option value="romantic">Romantic</option>
+                            <option value="solo backpacking">Solo Backpacking</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Budget Level</label>
+                        <select id="itin-budget">
+                            <option value="budget">Budget</option>
+                            <option value="moderate" selected>Moderate</option>
+                            <option value="luxury">Luxury</option>
+                        </select>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="fetchItinerary()" id="btn-itinerary">
+                    🗓️ Generate Itinerary
+                </button>
+            </div>
+            <div id="itinerary-result" class="result-container"></div>
+        </div>
+
+        <!-- ── Chat ── -->
+        <div class="section" id="section-chat">
+            <div class="page-header">
+                <h2>💬 AI Travel Chat</h2>
+                <p>Ask anything about your destination</p>
+            </div>
+            <div class="chat-container">
+                <div class="chat-messages" id="chat-messages"></div>
+                <div class="chat-input-area">
+                    <input type="text" id="chat-input" placeholder="Ask about your destination…"
+                           onkeydown="if(event.key==='Enter')sendChat()">
+                    <button class="btn btn-primary" onclick="sendChat()">Send</button>
+                    <button class="btn btn-danger btn-sm" onclick="clearChat()">🗑️</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Budget ── -->
+        <div class="section" id="section-budget">
+            <div class="page-header">
+                <h2>💰 AI Budget Planner</h2>
+                <p>Get a detailed cost breakdown for your trip</p>
+            </div>
+            <div class="card">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Trip Duration (days)</label>
+                        <input type="number" id="budget-days" value="7" min="1" max="60">
+                    </div>
+                    <div class="form-group">
+                        <label>Number of Travelers</label>
+                        <input type="number" id="budget-travelers" value="2" min="1" max="10">
+                    </div>
+                    <div class="form-group">
+                        <label>Travel Style</label>
+                        <select id="budget-style">
+                            <option value="budget">Budget</option>
+                            <option value="mid-range" selected>Mid-Range</option>
+                            <option value="luxury">Luxury</option>
+                        </select>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="fetchBudget()" id="btn-budget">
+                    💵 Calculate Budget
+                </button>
+            </div>
+            <div id="budget-result" class="result-container"></div>
+        </div>
+
+        <!-- ── Safety ── -->
+        <div class="section" id="section-safety">
+            <div class="page-header">
+                <h2>🛡️ Safety & Visa Information</h2>
+                <p>Travel advisories, visa requirements, and health info</p>
+            </div>
+            <div class="card">
+                <div class="form-group">
+                    <label>Your Nationality</label>
+                    <select id="safety-nationality">
+                        <option>Indian</option>
+                        <option>American</option>
+                        <option>British</option>
+                        <option>Canadian</option>
+                        <option>Australian</option>
+                        <option>German</option>
+                        <option>French</option>
+                        <option>Other</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="fetchAdvisory()" id="btn-advisory">
+                    🔍 Check Requirements
+                </button>
+            </div>
+            <div id="safety-result" class="result-container"></div>
+        </div>
+
+        <!-- ── Landmark ── -->
+        <div class="section" id="section-landmark">
+            <div class="page-header">
+                <h2>📸 AI Landmark Recognition</h2>
+                <p>Upload a photo to identify landmarks and get travel information</p>
+            </div>
+            <div class="card">
+                <div class="upload-zone" id="upload-zone" onclick="document.getElementById('landmark-file').click()"
+                     ondragover="event.preventDefault(); this.classList.add('dragover')"
+                     ondragleave="this.classList.remove('dragover')"
+                     ondrop="handleDrop(event)">
+                    <input type="file" id="landmark-file" accept="image/*" onchange="previewImage(this)">
+                    <div class="icon">📷</div>
+                    <p>Click or drag & drop an image here</p>
+                    <p style="font-size:0.75rem; margin-top:4px; color:var(--text-muted)">JPG, PNG, WebP supported</p>
+                </div>
+                <img id="image-preview" class="preview-image" style="display:none">
+                <div style="margin-top:16px">
+                    <button class="btn btn-primary" onclick="identifyLandmark()" id="btn-landmark">
+                        🔍 Identify Landmark
+                    </button>
+                </div>
+            </div>
+            <div id="landmark-result" class="result-container"></div>
+        </div>
+
+        <!-- ── Packing ── -->
+        <div class="section" id="section-packing">
+            <div class="page-header">
+                <h2>🎒 AI Packing List</h2>
+                <p>Get a personalized packing list for your trip</p>
+            </div>
+            <div class="card">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Trip Duration (days)</label>
+                        <input type="number" id="packing-days" value="7" min="1" max="60">
+                    </div>
+                    <div class="form-group">
+                        <label>Trip Type</label>
+                        <select id="packing-style">
+                            <option value="leisure" selected>Leisure</option>
+                            <option value="business">Business</option>
+                            <option value="adventure">Adventure</option>
+                            <option value="beach">Beach</option>
+                            <option value="winter sports">Winter Sports</option>
+                            <option value="backpacking">Backpacking</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Travel Date (optional)</label>
+                        <input type="date" id="packing-date">
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="fetchPackingList()" id="btn-packing">
+                    📦 Generate Packing List
+                </button>
+            </div>
+            <div id="packing-result" class="result-container"></div>
+        </div>
+
+        <!-- ── Compare ── -->
+        <div class="section" id="section-compare">
+            <div class="page-header">
+                <h2>⚖️ Compare Destinations</h2>
+                <p>Compare 2–4 countries side by side</p>
+            </div>
+            <div class="card">
+                <div class="form-group">
+                    <label>Select Countries (2–4)</label>
+                    <select id="compare-countries" multiple style="min-height:120px">
+                    </select>
+                    <p style="font-size:0.75rem; color:var(--text-muted); margin-top:4px">Hold Ctrl/Cmd to select multiple</p>
+                </div>
+                <div class="form-group">
+                    <label>Comparison Criteria</label>
+                    <div class="chip-selector" id="compare-criteria">
+                        <span class="chip selected" data-val="Cost of Living" onclick="toggleChip(this)">Cost of Living</span>
+                        <span class="chip selected" data-val="Safety" onclick="toggleChip(this)">Safety</span>
+                        <span class="chip" data-val="Weather" onclick="toggleChip(this)">Weather</span>
+                        <span class="chip selected" data-val="Food Scene" onclick="toggleChip(this)">Food Scene</span>
+                        <span class="chip" data-val="Nightlife" onclick="toggleChip(this)">Nightlife</span>
+                        <span class="chip" data-val="Cultural Attractions" onclick="toggleChip(this)">Cultural Attractions</span>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="fetchComparison()" id="btn-compare">
+                    🔍 Compare Destinations
+                </button>
+            </div>
+            <div id="compare-result" class="result-container"></div>
+        </div>
+
+        <!-- ── Phrases ── -->
+        <div class="section" id="section-phrases">
+            <div class="page-header">
+                <h2>🗣️ Language & Phrase Guide</h2>
+                <p>Essential travel phrases in the local language</p>
+            </div>
+            <div class="card">
+                <button class="btn btn-primary" onclick="fetchPhrases()" id="btn-phrases">
+                    📚 Load Essential Phrases
+                </button>
+            </div>
+            <div id="phrases-result" class="result-container"></div>
+        </div>
+
+        <!-- ── Weather ── -->
+        <div class="section" id="section-weather">
+            <div class="page-header">
+                <h2>🌦️ Weather-Based Activities</h2>
+                <p>Activity recommendations based on weather conditions</p>
+            </div>
+            <div class="card">
+                <div class="form-group">
+                    <label>Month of Visit</label>
+                    <select id="weather-month">
+                        <option>January</option><option>February</option><option>March</option>
+                        <option>April</option><option>May</option><option>June</option>
+                        <option>July</option><option>August</option><option>September</option>
+                        <option>October</option><option>November</option><option>December</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="fetchWeather()" id="btn-weather">
+                    🌤️ Get Recommendations
+                </button>
+            </div>
+            <div id="weather-result" class="result-container"></div>
+        </div>
+
+        <!-- ── Health Check ── -->
+        <div class="section" id="section-health">
+            <div class="page-header">
+                <h2>🏥 System Health Check</h2>
+                <p>Check the status of all connected services</p>
+            </div>
+            <div class="card">
+                <button class="btn btn-primary" onclick="fetchHealth()" id="btn-health">
+                    🔄 Run Health Check
+                </button>
+            </div>
+            <div id="health-result" class="result-container"></div>
+        </div>
+
+    </main>
+</div>
+
+<script>
+    // ══════════════════════════════════════════
+    // Configuration
+    // ══════════════════════════════════════════
+    const API_BASE = window.location.origin;
+    // If your FastAPI runs on a different port during development, use e.g.:
+    // const API_BASE = 'http://localhost:8000';
+
+    const chatSessionId = 'session_' + Math.random().toString(36).substr(2, 9);
+
+    // ══════════════════════════════════════════
+    // Helpers
+    // ══════════════════════════════════════════
+
+    function getCountry() {
+        const sel = document.getElementById('country-select');
+        return sel ? sel.value : '';
+    }
+
+    function requireCountry() {
+        const c = getCountry();
+        if (!c) {
+            showAlert('Please select a country from the sidebar first.', 'warning');
+            return null;
+        }
+        return c;
+    }
+
+    function showAlert(msg, type = 'info') {
+        const icons = { success: '✅', warning: '⚠️', danger: '❌', info: 'ℹ️' };
+        const html = `<div class="alert alert-${type}">${icons[type] || ''} ${escapeHtml(msg)}</div>`;
+        // Find the active section's result container or just alert
+        const activeSection = document.querySelector('.section.active');
+        const resultDiv = activeSection?.querySelector('.result-container');
+        if (resultDiv) {
+            resultDiv.innerHTML = html;
+        } else {
+            alert(msg);
+        }
+    }
+
+    function escapeHtml(str) {
+        if (typeof str !== 'string') return str;
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    function showLoading(containerId, message = 'Loading…') {
+        const el = document.getElementById(containerId);
+        if (el) el.innerHTML = `
+            <div class="loading-overlay">
+                <div class="spinner spinner-lg spinner-accent"></div>
+                <span>${escapeHtml(message)}</span>
+            </div>`;
+    }
+
+    function setButtonLoading(btnId, loading) {
+        const btn = document.getElementById(btnId);
+        if (!btn) return;
+        btn.disabled = loading;
+        if (loading) {
+            btn.dataset.originalText = btn.innerHTML;
+            btn.innerHTML = `<span class="spinner"></span> Working…`;
+        } else {
+            btn.innerHTML = btn.dataset.originalText || btn.innerHTML;
+        }
+    }
+
+    async function apiPost(path, body) {
+        const resp = await fetch(`${API_BASE}${path}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+            throw new Error(err.detail || JSON.stringify(err));
+        }
+        return resp.json();
+    }
+
+    async function apiGet(path) {
+        const resp = await fetch(`${API_BASE}${path}`);
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+            throw new Error(err.detail || JSON.stringify(err));
+        }
+        return resp.json();
+    }
+
+    function buildAccordion(title, contentHtml, open = false) {
+        return `
+            <div class="accordion-item${open ? ' open' : ''}">
+                <div class="accordion-header" onclick="this.parentElement.classList.toggle('open')">
+                    <span>${title}</span>
+                    <span class="arrow">▼</span>
+                </div>
+                <div class="accordion-body">
+                    <div class="accordion-body-inner">${contentHtml}</div>
+                </div>
+            </div>`;
+    }
+
+    function formatINR(num) {
+        if (typeof num !== 'number') return num;
+        return '₹' + num.toLocaleString('en-IN');
+    }
+
+    function scoreColor(score) {
+        if (score >= 7) return 'var(--success)';
+        if (score >= 4) return 'var(--warning)';
+        return 'var(--danger)';
+    }
+
+    function scoreBar(score, label = '') {
+        const pct = Math.min(score * 10, 100);
+        const color = scoreColor(score);
+        return `
+            <div class="score-bar-container">
+                <div class="score-bar-bg">
+                    <div class="score-bar-fill" style="width:${pct}%; background:${color}"></div>
+                </div>
+                ${label ? `<div class="score-label">${label}</div>` : ''}
+            </div>`;
+    }
+
+    // ══════════════════════════════════════════
+    // Sidebar & Navigation
+    // ══════════════════════════════════════════
+
+    function toggleSidebar() {
+        document.getElementById('sidebar').classList.toggle('open');
+        document.getElementById('overlay').classList.toggle('open');
+    }
+
+    function showSection(id, navBtn) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        const section = document.getElementById('section-' + id);
+        if (section) section.classList.add('active');
+        if (navBtn) navBtn.classList.add('active');
+        // Close mobile sidebar
+        document.getElementById('sidebar').classList.remove('open');
+        document.getElementById('overlay').classList.remove('open');
+    }
+
+    function toggleChip(el) {
+        el.classList.toggle('selected');
+    }
+
+    function getSelectedChips(containerId) {
+        return Array.from(document.querySelectorAll(`#${containerId} .chip.selected`))
+            .map(c => c.dataset.val);
+    }
+
+    // ══════════════════════════════════════════
+    // Init: Load Continents & Date
+    // ══════════════════════════════════════════
+
+    async function initApp() {
+        document.getElementById('current-date').textContent =
+            '📅 ' + new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+        try {
+            const data = await apiGet('/continents');
+            const sel = document.getElementById('continent-select');
+            data.continents.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c; opt.textContent = c;
+                sel.appendChild(opt);
+            });
+        } catch (e) {
+            console.error('Failed to load continents:', e);
+        }
+    }
+
+    async function loadCountries() {
+        const continent = document.getElementById('continent-select').value;
+        const sel = document.getElementById('country-select');
+        sel.innerHTML = '<option value="">Loading…</option>';
+        if (!continent) { sel.innerHTML = '<option value="">Select country…</option>'; return; }
+
+        try {
+            const data = await apiGet(`/countries/${continent}`);
+            sel.innerHTML = '<option value="">Select country…</option>';
+            data.countries.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c; opt.textContent = c;
+                sel.appendChild(opt);
+            });
+            // Also populate the compare multi-select
+            populateCompareCountries(data.countries);
+        } catch (e) {
+            sel.innerHTML = '<option value="">Error loading</option>';
+        }
+    }
+
+    function populateCompareCountries(countries) {
+        const sel = document.getElementById('compare-countries');
+        sel.innerHTML = '';
+        countries.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c; opt.textContent = c;
+            sel.appendChild(opt);
+        });
+    }
+
+    function onCountryChange() {
+        // Clear previous results
+        document.querySelectorAll('.result-container').forEach(el => el.innerHTML = '');
+        // Clear chat
+        document.getElementById('chat-messages').innerHTML = '';
+    }
+
+    // ══════════════════════════════════════════
+    // Travel Plan
+    // ══════════════════════════════════════════
+
+    async function fetchTravelPlan() {
+        const country = requireCountry();
+        if (!country) return;
+
+        setButtonLoading('btn-travel-plan', true);
+        showLoading('travel-plan-result', `Generating travel plan for ${country}…`);
+
+        try {
+            const data = await apiGet(`/travel/full/${country}`);
+            renderTravelPlan(data);
+        } catch (e) {
+            document.getElementById('travel-plan-result').innerHTML =
+                `<div class="alert alert-danger">❌ ${escapeHtml(e.message)}</div>`;
+        } finally {
+            setButtonLoading('btn-travel-plan', false);
+        }
+    }
+
+    function renderTravelPlan(data) {
+        const container = document.getElementById('travel-plan-result');
+        const info = data.info || {};
+        const conv = data.conversion || {};
+        const plan = data.travel_plan || {};
+
+        let html = '';
+
+        // Metrics
+        const rateStr = conv.rate ? `1 ${info.currency_code} = ₹${Number(conv.rate).toFixed(2)}` : 'N/A';
+        html += `
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="label">🏛️ Capital</div>
+                    <div class="value">${escapeHtml(info.capital || 'N/A')}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">💱 Currency</div>
+                    <div class="value">${escapeHtml(info.currency_code || 'N/A')}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">📈 Exchange Rate</div>
+                    <div class="value" style="font-size:1rem">${escapeHtml(rateStr)}</div>
+                </div>
+            </div>`;
+
+        if (data.travel_plan_error) {
+            html += `<div class="alert alert-warning">⚠️ AI plan error: ${escapeHtml(data.travel_plan_error)}</div>`;
+        }
+
+        // Cities
+        if (plan.cities && plan.cities.length) {
+            html += `<h3 style="margin:20px 0 12px">🏙️ Must-Visit Cities</h3>`;
+            plan.cities.forEach(city => {
+                let activities = '';
+                const cityActivities = plan.activities?.[city.name] || [];
+                if (cityActivities.length) {
+                    activities = `<div style="margin-top:10px"><strong>Activities:</strong><ul style="margin-left:18px; margin-top:4px">` +
+                        cityActivities.map(a =>
+                            `<li><strong>${escapeHtml(a.name)}</strong> – ${escapeHtml(a.description)} <span class="tag">${formatINR(a.price_inr)}</span></li>`
+                        ).join('') + '</ul></div>';
+                }
+                html += buildAccordion(`📍 ${escapeHtml(city.name)}`,
+                    `<p>${escapeHtml(city.reason)}</p>${activities}`);
+            });
+        }
+
+        // Foods
+        if (plan.foods && plan.foods.length) {
+            html += `<h3 style="margin:20px 0 12px">🍽️ Must-Try Foods</h3>`;
+            plan.foods.forEach(food => {
+                html += `<div class="card" style="padding:14px 18px; margin-bottom:8px">
+                    <strong>${escapeHtml(food.name)}</strong> – ${escapeHtml(food.description)}
+                </div>`;
+            });
+        }
+
+        // Tips
+        if (plan.tips && plan.tips.length) {
+            html += `<h3 style="margin:20px 0 12px">💡 Travel Tips</h3>`;
+            html += `<div class="card"><ul style="margin-left:18px">` +
+                plan.tips.map(t => `<li style="margin-bottom:6px">${escapeHtml(t)}</li>`).join('') +
+                '</ul></div>';
+        }
+
+        container.innerHTML = html;
+    }
+
+    // ══════════════════════════════════════════
+    // Itinerary
+    // ══════════════════════════════════════════
+
+    async function fetchItinerary() {
+        const country = requireCountry();
+        if (!country) return;
+
+        setButtonLoading('btn-itinerary', true);
+        showLoading('itinerary-result', `Creating your itinerary for ${country}…`);
+
+        try {
+            const result = await apiPost('/travel/itinerary', {
+                country,
+                num_days: parseInt(document.getElementById('itin-days').value),
+                travel_style: document.getElementById('itin-style').value,
+                budget_level: document.getElementById('itin-budget').value
+            });
+            renderItinerary(result.data);
+        } catch (e) {
+            document.getElementById('itinerary-result').innerHTML =
+                `<div class="alert alert-danger">❌ ${escapeHtml(e.message)}</div>`;
+        } finally {
+            setButtonLoading('btn-itinerary', false);
+        }
+    }
+
+    function renderItinerary(data) {
+        const container = document.getElementById('itinerary-result');
+        if (!data) { container.innerHTML = '<div class="alert alert-danger">No data received.</div>'; return; }
+
+        let html = '';
+
+        // Summary
+        html += `
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="label">📅 Total Days</div>
+                    <div class="value">${data.itinerary?.length || '?'}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">💰 Est. Budget</div>
+                    <div class="value">${typeof data.total_estimated_cost_inr === 'number' ? formatINR(data.total_estimated_cost_inr) : (data.total_estimated_cost_inr || 'N/A')}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">🌸 Best Time</div>
+                    <div class="value" style="font-size:1rem">${escapeHtml(data.best_time_to_visit || 'Any time')}</div>
+                </div>
+            </div>`;
+
+        if (data.packing_essentials?.length) {
+            html += `<div class="alert alert-info">🎒 <strong>Packing Essentials:</strong> ${data.packing_essentials.map(escapeHtml).join(', ')}</div>`;
+        }
+
+        // Days
+        (data.itinerary || []).forEach(day => {
+            const m = day.morning || {};
+            const a = day.afternoon || {};
+            const e = day.evening || {};
+            const meals = day.meals || {};
+
+            const content = `
+                <div class="form-row" style="gap:20px">
+                    <div>
+                        <p><strong>🌅 Morning:</strong> ${escapeHtml(m.activity || 'Free time')}</p>
+                        <p style="color:var(--text-muted); font-size:0.85rem">${escapeHtml(m.description || '')}</p>
+                        ${m.cost_inr ? `<span class="tag">${formatINR(m.cost_inr)}</span>` : ''}
+
+                        <p style="margin-top:12px"><strong>☀️ Afternoon:</strong> ${escapeHtml(a.activity || 'Free time')}</p>
+                        <p style="color:var(--text-muted); font-size:0.85rem">${escapeHtml(a.description || '')}</p>
+                        ${a.cost_inr ? `<span class="tag">${formatINR(a.cost_inr)}</span>` : ''}
+
+                        <p style="margin-top:12px"><strong>🌙 Evening:</strong> ${escapeHtml(e.activity || 'Free time')}</p>
+                        <p style="color:var(--text-muted); font-size:0.85rem">${escapeHtml(e.description || '')}</p>
+                        ${e.cost_inr ? `<span class="tag">${formatINR(e.cost_inr)}</span>` : ''}
+                    </div>
+                    <div>
+                        <p><strong>🍽️ Meals</strong></p>
+                        <p>🥐 ${escapeHtml(meals.breakfast || '-')}</p>
+                        <p>🍛 ${escapeHtml(meals.lunch || '-')}</p>
+                        <p>🍽️ ${escapeHtml(meals.dinner || '-')}</p>
+                        <p style="margin-top:12px"><strong>🏨</strong> ${escapeHtml(day.accommodation || '-')}</p>
+                        ${day.travel_tip ? `<div class="alert alert-info" style="margin-top:10px; padding:8px 12px; font-size:0.82rem">💡 ${escapeHtml(day.travel_tip)}</div>` : ''}
+                    </div>
+                </div>`;
+
+            html += buildAccordion(
+                `📍 Day ${day.day}: ${escapeHtml(day.title || '')} – ${escapeHtml(day.city || '')}`,
+                content
+            );
+        });
+
+        container.innerHTML = html;
+    }
+
+    // ══════════════════════════════════════════
+    // Chat
+    // ══════════════════════════════════════════
+
+    async function sendChat() {
+        const country = requireCountry();
+        if (!country) return;
+        const input = document.getElementById('chat-input');
+        const msg = input.value.trim();
+        if (!msg) return;
+
+        const msgArea = document.getElementById('chat-messages');
+        msgArea.innerHTML += `<div class="chat-bubble user">${escapeHtml(msg)}</div>`;
+        input.value = '';
+        msgArea.scrollTop = msgArea.scrollHeight;
+
+        // Typing indicator
+        const typingId = 'typing-' + Date.now();
+        msgArea.innerHTML += `<div class="chat-bubble assistant" id="${typingId}"><span class="spinner spinner-accent" style="width:14px;height:14px;border-width:2px"></span> Thinking…</div>`;
+        msgArea.scrollTop = msgArea.scrollHeight;
+
+        try {
+            const result = await apiPost('/travel/chat', {
+                country,
+                message: msg,
+                session_id: chatSessionId
+            });
+            const el = document.getElementById(typingId);
+            if (el) el.textContent = result.response || 'No response.';
+        } catch (e) {
+            const el = document.getElementById(typingId);
+            if (el) { el.textContent = '❌ Error: ' + e.message; el.style.borderColor = 'var(--danger)'; }
+        }
+        msgArea.scrollTop = msgArea.scrollHeight;
+    }
+
+    async function clearChat() {
+        try { await fetch(`${API_BASE}/travel/chat/${chatSessionId}`, { method: 'DELETE' }); } catch (_) { }
+        document.getElementById('chat-messages').innerHTML = '';
+    }
+
+    // ══════════════════════════════════════════
+    // Budget
+    // ══════════════════════════════════════════
+
+    async function fetchBudget() {
+        const country = requireCountry();
+        if (!country) return;
+
+        setButtonLoading('btn-budget', true);
+        showLoading('budget-result', 'Calculating your budget…');
+
+        try {
+            const result = await apiPost('/travel/budget', {
+                country,
+                num_days: parseInt(document.getElementById('budget-days').value),
+                num_travelers: parseInt(document.getElementById('budget-travelers').value),
+                travel_style: document.getElementById('budget-style').value
+            });
+            renderBudget(result.data);
+        } catch (e) {
+            document.getElementById('budget-result').innerHTML =
+                `<div class="alert alert-danger">❌ ${escapeHtml(e.message)}</div>`;
+        } finally {
+            setButtonLoading('btn-budget', false);
+        }
+    }
+
+    function renderBudget(data) {
+        const container = document.getElementById('budget-result');
+        if (!data) { container.innerHTML = '<div class="alert alert-danger">No data.</div>'; return; }
+
+        const s = data.summary || {};
+        let html = `
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="label">👤 Per Person</div>
+                    <div class="value">${typeof s.total_per_person === 'number' ? formatINR(s.total_per_person) : (s.total_per_person || 'N/A')}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">💰 Total Trip</div>
+                    <div class="value">${typeof s.total_trip_cost === 'number' ? formatINR(s.total_trip_cost) : (s.total_trip_cost || 'N/A')}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">📊 Daily Avg</div>
+                    <div class="value">${typeof s.daily_average_per_person === 'number' ? formatINR(s.daily_average_per_person) : (s.daily_average_per_person || 'N/A')}</div>
+                </div>
+            </div>`;
+
+        // Breakdown
+        const bd = data.breakdown || {};
+        const cats = Object.entries(bd);
+        if (cats.length) {
+            // Simple bar chart
+            html += `<h3 style="margin:16px 0 10px">📊 Budget Distribution</h3>`;
+            const totals = cats.map(([k, v]) => ({ name: k.replace(/_/g, ' '), total: v?.total || 0 }));
+            const maxTotal = Math.max(...totals.map(t => t.total), 1);
+            totals.forEach(t => {
+                const pct = (t.total / maxTotal * 100).toFixed(0);
+                html += `
+                    <div style="margin-bottom:8px">
+                        <div style="display:flex; justify-content:space-between; font-size:0.82rem; margin-bottom:3px">
+                            <span style="text-transform:capitalize">${escapeHtml(t.name)}</span>
+                            <span style="font-weight:600">${formatINR(t.total)}</span>
+                        </div>
+                        <div class="score-bar-bg">
+                            <div class="score-bar-fill" style="width:${pct}%; background:var(--accent)"></div>
+                        </div>
+                    </div>`;
+            });
+
+            // Detail accordions
+            html += `<h3 style="margin:20px 0 10px">📋 Detailed Breakdown</h3>`;
+            cats.forEach(([cat, details]) => {
+                if (!details || typeof details !== 'object') return;
+                const totalStr = typeof details.total === 'number' ? formatINR(details.total) : details.total;
+                let inner = '';
+                Object.entries(details).forEach(([k, v]) => {
+                    if (k === 'total' || k === 'tips') return;
+                    if (v && typeof v === 'object' && !Array.isArray(v)) {
+                        inner += `<p><strong>${k.replace(/_/g, ' ')}:</strong></p><ul style="margin-left:18px">`;
+                        Object.entries(v).forEach(([sk, sv]) => {
+                            inner += `<li>${escapeHtml(sk)}: ${typeof sv === 'number' ? formatINR(sv) : escapeHtml(sv)}</li>`;
+                        });
+                        inner += '</ul>';
+                    } else if (Array.isArray(v)) {
+                        inner += `<p><strong>${k.replace(/_/g, ' ')}:</strong></p><ul style="margin-left:18px">`;
+                        v.forEach(item => {
+                            if (typeof item === 'object') {
+                                inner += `<li>${escapeHtml(item.name || JSON.stringify(item))} ${item.cost ? '– ' + formatINR(item.cost) : ''}</li>`;
+                            } else {
+                                inner += `<li>${escapeHtml(item)}</li>`;
+                            }
+                        });
+                        inner += '</ul>';
+                    } else {
+                        inner += `<p><strong>${k.replace(/_/g, ' ')}:</strong> ${escapeHtml(String(v))}</p>`;
+                    }
+                });
+                if (details.tips) inner += `<div class="alert alert-info" style="margin-top:8px; padding:8px 12px; font-size:0.82rem">💡 ${escapeHtml(details.tips)}</div>`;
+                html += buildAccordion(`${cat.replace(/_/g, ' ')} – ${totalStr}`, inner);
+            });
+        }
+
+        // Tips
+        if (data.money_saving_tips?.length) {
+            html += `<h3 style="margin:16px 0 10px">💡 Money Saving Tips</h3><div class="card"><ul style="margin-left:18px">`;
+            data.money_saving_tips.forEach(t => html += `<li>${escapeHtml(t)}</li>`);
+            html += '</ul></div>';
+        }
+
+        container.innerHTML = html;
+    }
+
+    // ══════════════════════════════════════════
+    // Safety & Visa
+    // ══════════════════════════════════════════
+
+    async function fetchAdvisory() {
+        const country = requireCountry();
+        if (!country) return;
+
+        setButtonLoading('btn-advisory', true);
+        showLoading('safety-result', 'Fetching travel advisory…');
+
+        try {
+            const result = await apiPost('/travel/advisory', {
+                country,
+                nationality: document.getElementById('safety-nationality').value
+            });
+            renderAdvisory(result.data);
+        } catch (e) {
+            document.getElementById('safety-result').innerHTML =
+                `<div class="alert alert-danger">❌ ${escapeHtml(e.message)}</div>`;
+        } finally {
+            setButtonLoading('btn-advisory', false);
+        }
+    }
+
+    function renderAdvisory(data) {
+        const container = document.getElementById('safety-result');
+        if (!data) { container.innerHTML = '<div class="alert alert-danger">No data.</div>'; return; }
+
+        const score = data.safety_score || 0;
+        const rating = data.safety_rating || 'Unknown';
+        const alertType = score >= 7 ? 'success' : score >= 4 ? 'warning' : 'danger';
+
+        let html = `<div class="alert alert-${alertType}">
+            <strong>Safety Rating: ${escapeHtml(rating)} (${score}/10)</strong>
+        </div>`;
+
+        html += scoreBar(score, `Safety Score: ${score}/10`);
+
+        // Visa
+        const visa = data.visa_requirements || {};
+        html += `<h3 style="margin:20px 0 12px">🛂 Visa Requirements</h3>
+            <div class="metrics-grid">
+                <div class="metric-card"><div class="label">Type</div><div class="value" style="font-size:1rem">${escapeHtml(visa.visa_type || 'Check Embassy')}</div></div>
+                <div class="metric-card"><div class="label">Duration</div><div class="value" style="font-size:1rem">${escapeHtml(visa.duration_allowed || 'Varies')}</div></div>
+                <div class="metric-card"><div class="label">Cost</div><div class="value">${typeof visa.approximate_cost_inr === 'number' ? formatINR(visa.approximate_cost_inr) : (visa.approximate_cost_inr || 'Varies')}</div></div>
+                <div class="metric-card"><div class="label">Processing</div><div class="value" style="font-size:1rem">${escapeHtml(visa.processing_time || 'Varies')}</div></div>
+            </div>`;
+
+        if (visa.documents_required?.length) {
+            html += `<div class="card"><strong>📄 Documents Required:</strong><ul style="margin:8px 0 0 18px">`;
+            visa.documents_required.forEach(d => html += `<li>✅ ${escapeHtml(d)}</li>`);
+            html += '</ul></div>';
+        }
+
+        // Health
+        if (data.health_advisories?.length) {
+            html += `<h3 style="margin:16px 0 10px">🏥 Health Advisories</h3><div class="card">`;
+            data.health_advisories.forEach(h => {
+                if (typeof h === 'object') {
+                    const icon = h.mandatory ? '🔴 Required' : '🟡 Recommended';
+                    html += `<p>${icon} <strong>${escapeHtml(h.type || 'Health')}</strong>: ${escapeHtml(h.details || '')}</p>`;
+                } else {
+                    html += `<p>• ${escapeHtml(h)}</p>`;
+                }
+            });
+            html += '</div>';
+        }
+
+        // Emergency Numbers
+        const emerg = data.emergency_numbers || {};
+        if (Object.keys(emerg).length) {
+            html += `<h3 style="margin:16px 0 10px">📞 Emergency Numbers</h3><div class="card">`;
+            Object.entries(emerg).forEach(([k, v]) => {
+                html += `<p><strong>${k.replace(/_/g, ' ')}:</strong> ${escapeHtml(v)}</p>`;
+            });
+            html += '</div>';
+        }
+
+        // Scams
+        if (data.scams_to_watch?.length) {
+            html += `<h3 style="margin:16px 0 10px">⚠️ Scams to Watch</h3><div class="card"><ul style="margin-left:18px">`;
+            data.scams_to_watch.forEach(s => html += `<li>${escapeHtml(s)}</li>`);
+            html += '</ul></div>';
+        }
+
+        container.innerHTML = html;
+    }
+
+    // ══════════════════════════════════════════
+    // Landmark
+    // ══════════════════════════════════════════
+
+    function previewImage(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const preview = document.getElementById('image-preview');
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function handleDrop(e) {
+        e.preventDefault();
+        e.currentTarget.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length) {
+            document.getElementById('landmark-file').files = files;
+            previewImage(document.getElementById('landmark-file'));
+        }
+    }
+
+    async function identifyLandmark() {
+        const fileInput = document.getElementById('landmark-file');
+        if (!fileInput.files.length) {
+            showAlert('Please upload an image first.', 'warning');
+            return;
+        }
+
+        setButtonLoading('btn-landmark', true);
+        showLoading('landmark-result', 'Analyzing image…');
+
+        const formData = new FormData();
+        formData.append('image', fileInput.files[0]);
+        const country = getCountry();
+        if (country) formData.append('country_hint', country);
+
+        try {
+            const resp = await fetch(`${API_BASE}/landmark/identify`, {
+                method: 'POST',
+                body: formData
+            });
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+                throw new Error(err.detail || 'Request failed');
+            }
+            const result = await resp.json();
+            renderLandmark(result.data);
+        } catch (e) {
+            document.getElementById('landmark-result').innerHTML =
+                `<div class="alert alert-danger">❌ ${escapeHtml(e.message)}</div>`;
+        } finally {
+            setButtonLoading('btn-landmark', false);
+        }
+    }
+
+    function renderLandmark(data) {
+        const container = document.getElementById('landmark-result');
+        if (!data) { container.innerHTML = '<div class="alert alert-danger">No data.</div>'; return; }
+
+        let html = '';
+        if (data.identified) {
+            html += `<div class="alert alert-success">🏛️ <strong>${escapeHtml(data.landmark_name || 'Unknown')}</strong> — 📍 ${escapeHtml(data.location || '')}</div>`;
+            html += `<div class="card"><p>${escapeHtml(data.description || '')}</p></div>`;
+
+            const vi = data.visitor_info || {};
+            if (Object.keys(vi).length) {
+                html += `<div class="metrics-grid">
+                    <div class="metric-card"><div class="label">Best Time</div><div class="value" style="font-size:0.95rem">${escapeHtml(vi.best_time_to_visit || 'Anytime')}</div></div>
+                    <div class="metric-card"><div class="label">Duration</div><div class="value" style="font-size:0.95rem">${escapeHtml(vi.typical_visit_duration || '1-2h')}</div></div>
+                    <div class="metric-card"><div class="label">Entry Fee</div><div class="value">${typeof vi.entry_fee_inr === 'number' ? formatINR(vi.entry_fee_inr) : 'N/A'}</div></div>
+                </div>`;
+            }
+
+            if (data.nearby_attractions?.length) {
+                html += `<div class="card"><strong>📍 Nearby:</strong> ${data.nearby_attractions.map(escapeHtml).join(', ')}</div>`;
+            }
+            if (data.photo_tips) {
+                html += `<div class="alert alert-info">📷 ${escapeHtml(data.photo_tips)}</div>`;
+            }
+        } else {
+            html += `<div class="alert alert-warning">Could not identify a specific landmark.</div>`;
+            if (data.description) html += `<div class="card"><p>${escapeHtml(data.description)}</p></div>`;
+        }
+        container.innerHTML = html;
+    }
+
+    // ══════════════════════════════════════════
+    // Packing List
+    // ══════════════════════════════════════════
+
+    async function fetchPackingList() {
+        const country = requireCountry();
+        if (!country) return;
+
+        setButtonLoading('btn-packing', true);
+        showLoading('packing-result', 'Creating your packing list…');
+
+        const dateVal = document.getElementById('packing-date').value;
+        try {
+            const result = await apiPost('/travel/packing-list', {
+                country,
+                num_days: parseInt(document.getElementById('packing-days').value),
+                travel_style: document.getElementById('packing-style').value,
+                travel_dates: dateVal || null
+            });
+            renderPackingList(result.data);
+        } catch (e) {
+            document.getElementById('packing-result').innerHTML =
+                `<div class="alert alert-danger">❌ ${escapeHtml(e.message)}</div>`;
+        } finally {
+            setButtonLoading('btn-packing', false);
+        }
+    }
+
+    function renderPackingList(data) {
+        const container = document.getElementById('packing-result');
+        if (!data) { container.innerHTML = '<div class="alert alert-danger">No data.</div>'; return; }
+
+        let html = `<div class="alert alert-info">🌤️ <strong>Weather:</strong> ${escapeHtml(data.weather_summary || 'Check local forecasts')}</div>`;
+
+        const cats = data.categories || {};
+        Object.entries(cats).forEach(([category, items]) => {
+            let inner = '';
+            (items || []).forEach((item, i) => {
+                const uid = `pack-${category}-${i}`;
+                if (typeof item === 'object') {
+                    const notes = item.notes ? ` <span style="color:var(--text-muted); font-size:0.8rem">– ${escapeHtml(item.notes)}</span>` : '';
+                    inner += `<div class="checklist-item" id="ci-${uid}">
+                        <input type="checkbox" id="${uid}" onchange="this.parentElement.classList.toggle('checked')">
+                        <label for="${uid}">${escapeHtml(item.item || 'Item')} (×${item.quantity || 1})${notes}</label>
+                    </div>`;
+                } else {
+                    inner += `<div class="checklist-item" id="ci-${uid}">
+                        <input type="checkbox" id="${uid}" onchange="this.parentElement.classList.toggle('checked')">
+                        <label for="${uid}">${escapeHtml(item)}</label>
+                    </div>`;
+                }
+            });
+            html += buildAccordion(`📂 ${category.replace(/_/g, ' ')}`, inner, true);
+        });
+
+        if (data.pro_tips?.length) {
+            html += `<div class="card" style="margin-top:16px"><strong>💡 Pro Tips:</strong><ul style="margin:8px 0 0 18px">`;
+            data.pro_tips.forEach(t => html += `<li>${escapeHtml(t)}</li>`);
+            html += '</ul></div>';
+        }
+
+        if (data.items_to_avoid?.length) {
+            html += `<div class="alert alert-warning" style="margin-top:12px">🚫 <strong>Items to Avoid:</strong> ${data.items_to_avoid.map(escapeHtml).join('; ')}</div>`;
+        }
+
+        container.innerHTML = html;
+    }
+
+    // ══════════════════════════════════════════
+    // Compare Destinations
+    // ══════════════════════════════════════════
+
+    async function fetchComparison() {
+        const sel = document.getElementById('compare-countries');
+        const countries = Array.from(sel.selectedOptions).map(o => o.value);
+        const criteria = getSelectedChips('compare-criteria');
+
+        if (countries.length < 2) { showAlert('Select at least 2 countries.', 'warning'); return; }
+        if (!criteria.length) { showAlert('Select at least 1 criterion.', 'warning'); return; }
+
+        setButtonLoading('btn-compare', true);
+        showLoading('compare-result', 'Comparing destinations…');
+
+        try {
+            const result = await apiPost('/travel/compare', { countries, criteria });
+            renderComparison(result.data, countries);
+        } catch (e) {
+            document.getElementById('compare-result').innerHTML =
+                `<div class="alert alert-danger">❌ ${escapeHtml(e.message)}</div>`;
+        } finally {
+            setButtonLoading('btn-compare', false);
+        }
+    }
+
+    function renderComparison(data, countries) {
+        const container = document.getElementById('compare-result');
+        if (!data) { container.innerHTML = '<div class="alert alert-danger">No data.</div>'; return; }
+
+        let html = `<div class="alert alert-success">🏆 <strong>Overall Winner: ${escapeHtml(data.overall_winner || 'N/A')}</strong> — ${escapeHtml(data.winner_reason || '')}</div>`;
+
+        // Table
+        const table = data.comparison_table || {};
+        if (Object.keys(table).length) {
+            html += `<table class="comparison-table"><thead><tr><th>Criteria</th>`;
+            countries.forEach(c => html += `<th>${escapeHtml(c)}</th>`);
+            html += '</tr></thead><tbody>';
+
+            Object.entries(table).forEach(([criterion, scores]) => {
+                html += `<tr><td style="font-weight:600">${escapeHtml(criterion)}</td>`;
+                countries.forEach(c => {
+                    const d = scores[c] || {};
+                    const sc = typeof d === 'object' ? d.score : d;
+                    const det = typeof d === 'object' ? (d.details || '') : '';
+                    html += `<td>
+                        <div style="font-weight:700; font-size:1.1rem; color:${scoreColor(sc || 0)}">${sc || '?'}/10</div>
+                        ${scoreBar(sc || 0)}
+                        <div style="font-size:0.78rem; color:var(--text-muted); margin-top:4px">${escapeHtml(det)}</div>
+                    </td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+        }
+
+        // Best For
+        const bf = data.best_for || {};
+        if (Object.keys(bf).length) {
+            html += `<h3 style="margin:20px 0 10px">🏅 Best For</h3><div class="metrics-grid">`;
+            Object.entries(bf).forEach(([k, v]) => {
+                html += `<div class="metric-card"><div class="label">${escapeHtml(k.replace(/_/g, ' '))}</div><div class="value" style="font-size:0.95rem">${escapeHtml(v)}</div></div>`;
+            });
+            html += '</div>';
+        }
+
+        if (data.summary) {
+            html += `<div class="card" style="margin-top:16px"><p>${escapeHtml(data.summary)}</p></div>`;
+        }
+
+        container.innerHTML = html;
+    }
+
+    // ══════════════════════════════════════════
+    // Phrases
+    // ══════════════════════════════════════════
+
+    async function fetchPhrases() {
+        const country = requireCountry();
+        if (!country) return;
+
+        setButtonLoading('btn-phrases', true);
+        showLoading('phrases-result', `Loading phrases for ${country}…`);
+
+        try {
+            const result = await apiPost('/travel/phrases', { country });
+            renderPhrases(result.data);
+        } catch (e) {
+            document.getElementById('phrases-result').innerHTML =
+                `<div class="alert alert-danger">❌ ${escapeHtml(e.message)}</div>`;
+        } finally {
+            setButtonLoading('btn-phrases', false);
+        }
+    }
+
+    function renderPhrases(data) {
+        const container = document.getElementById('phrases-result');
+        if (!data) { container.innerHTML = '<div class="alert alert-danger">No data.</div>'; return; }
+
+        let html = `<div class="alert alert-info">🌐 <strong>Primary Language:</strong> ${escapeHtml(data.primary_language || 'Unknown')}</div>`;
+        if (data.greeting_culture) {
+            html += `<div class="card" style="margin-bottom:16px"><strong>🤝 Greeting Culture:</strong> ${escapeHtml(data.greeting_culture)}</div>`;
+        }
+
+        const cats = data.categories || {};
+        Object.entries(cats).forEach(([category, phrases]) => {
+            let inner = '';
+            (phrases || []).forEach(p => {
+                if (typeof p === 'object') {
+                    inner += `<div class="phrase-card">
+                        <div class="english">${escapeHtml(p.english || '')}</div>
+                        <div class="local">🗣️ ${escapeHtml(p.local || '')}</div>
+                        ${p.pronunciation ? `<div class="pronunciation">🔊 ${escapeHtml(p.pronunciation)}</div>` : ''}
+                    </div>`;
+                } else {
+                    inner += `<p style="margin-bottom:6px">• ${escapeHtml(p)}</p>`;
+                }
+            });
+            html += buildAccordion(`💬 ${category.replace(/_/g, ' ')}`, inner, true);
+        });
+
+        if (data.cultural_notes?.length) {
+            html += `<div class="card" style="margin-top:16px"><strong>📝 Cultural Notes:</strong><ul style="margin:8px 0 0 18px">`;
+            data.cultural_notes.forEach(n => html += `<li>${escapeHtml(n)}</li>`);
+            html += '</ul></div>';
+        }
+
+        container.innerHTML = html;
+    }
+
+    // ══════════════════════════════════════════
+    // Weather
+    // ══════════════════════════════════════════
+
+    async function fetchWeather() {
+        const country = requireCountry();
+        if (!country) return;
+
+        setButtonLoading('btn-weather', true);
+        const month = document.getElementById('weather-month').value;
+        showLoading('weather-result', `Analyzing ${country} weather for ${month}…`);
+
+        try {
+            const result = await apiPost('/travel/weather-activities', { country, month });
+            renderWeather(result.data);
+        } catch (e) {
+            document.getElementById('weather-result').innerHTML =
+                `<div class="alert alert-danger">❌ ${escapeHtml(e.message)}</div>`;
+        } finally {
+            setButtonLoading('btn-weather', false);
+        }
+    }
+
+    function renderWeather(data) {
+        const container = document.getElementById('weather-result');
+        if (!data) { container.innerHTML = '<div class="alert alert-danger">No data.</div>'; return; }
+
+        const w = data.weather_summary || {};
+        let html = `
+            <div class="metrics-grid">
+                <div class="metric-card"><div class="label">🌡️ Temperature</div><div class="value" style="font-size:1rem">${escapeHtml(w.temperature_range || 'N/A')}</div></div>
+                <div class="metric-card"><div class="label">🌧️ Rainfall</div><div class="value" style="font-size:1rem">${escapeHtml(w.rainfall || 'N/A')}</div></div>
+                <div class="metric-card"><div class="label">📅 Peak Season</div><div class="value">${data.is_peak_season ? 'Yes 🔥' : 'No'}</div></div>
+                <div class="metric-card"><div class="label">👥 Crowds</div><div class="value" style="font-size:1rem">${escapeHtml(data.tourist_crowd_level || 'N/A')}</div></div>
+            </div>`;
+
+        if (data.recommended_activities?.length) {
+            html += `<h3 style="margin:16px 0 10px">✅ Recommended Activities</h3>`;
+            data.recommended_activities.forEach(a => {
+                if (typeof a === 'object') {
+                    let inner = `<p><strong>Why this month:</strong> ${escapeHtml(a.why_this_month || '')}</p>`;
+                    if (a.best_locations?.length) inner += `<p><strong>Best locations:</strong> ${a.best_locations.map(escapeHtml).join(', ')}</p>`;
+                    if (a.what_to_pack?.length) inner += `<p><strong>Pack:</strong> ${a.what_to_pack.map(escapeHtml).join(', ')}</p>`;
+                    html += buildAccordion(`🎯 ${escapeHtml(a.activity || 'Activity')}`, inner, true);
+                } else {
+                    html += `<div class="card" style="padding:12px 16px; margin-bottom:6px">• ${escapeHtml(a)}</div>`;
+                }
+            });
+        }
+
+        if (data.activities_to_avoid?.length) {
+            html += `<h3 style="margin:16px 0 10px">⛔ Activities to Avoid</h3><div class="card">`;
+            data.activities_to_avoid.forEach(a => {
+                if (typeof a === 'object') {
+                    html += `<p>🚫 <strong>${escapeHtml(a.activity || '')}</strong>: ${escapeHtml(a.reason || '')}</p>`;
+                } else {
+                    html += `<p>🚫 ${escapeHtml(a)}</p>`;
+                }
+            });
+            html += '</div>';
+        }
+
+        if (data.festivals_events?.length) {
+            html += `<h3 style="margin:16px 0 10px">🎉 Festivals & Events</h3>`;
+            data.festivals_events.forEach(f => {
+                if (typeof f === 'object') {
+                    html += `<div class="card" style="padding:14px 18px; margin-bottom:8px">
+                        <strong>${escapeHtml(f.name || '')}</strong>
+                        ${f.date ? ` — 📅 ${escapeHtml(f.date)}` : ''}
+                        ${f.location ? ` — 📍 ${escapeHtml(f.location)}` : ''}
+                        <p style="margin-top:4px; color:var(--text-muted)">${escapeHtml(f.description || '')}</p>
+                    </div>`;
+                }
+            });
+        }
+
+        container.innerHTML = html;
+    }
+
+    // ══════════════════════════════════════════
+    // Health Check
+    // ══════════════════════════════════════════
+
+    async function fetchHealth() {
+        setButtonLoading('btn-health', true);
+        showLoading('health-result', 'Running health checks…');
+
+        try {
+            const data = await apiGet('/health');
+            renderHealth(data);
+        } catch (e) {
+            document.getElementById('health-result').innerHTML =
+                `<div class="alert alert-danger">❌ ${escapeHtml(e.message)}</div>`;
+        } finally {
+            setButtonLoading('btn-health', false);
+        }
+    }
+
+    function renderHealth(data) {
+        const container = document.getElementById('health-result');
+
+        const overallHtml = data.all_ok
+            ? '<div class="alert alert-success">✅ <strong>All Systems Operational</strong></div>'
+            : '<div class="alert alert-warning">⚠️ <strong>Some Components May Have Issues</strong></div>';
+
+        const services = [
+            { key: 'nvidia_api', label: '🤖 NVIDIA API' },
+            { key: 'nvidia_client', label: '🔄 NVIDIA Client' },
+            { key: 'exchange_api', label: '💱 Exchange Rate API' },
+            { key: 'rest_countries_api', label: '🌍 Countries Data API' },
+        ];
+
+        let gridHtml = '<div class="health-grid">';
+        services.forEach(s => {
+            const check = data[s.key] || {};
+            const statusClass = check.working ? 'success' : 'danger';
+            gridHtml += `
+                <div class="health-card" style="border-left: 3px solid var(--${statusClass})">
+                    <div class="hc-title">${s.label}</div>
+                    <div class="hc-status" style="color:var(--${statusClass})">${escapeHtml(check.status || 'Unknown')}</div>
+                    <div class="hc-details">${escapeHtml(check.details || '')}</div>
+                </div>`;
+        });
+        gridHtml += '</div>';
+
+        container.innerHTML = overallHtml + gridHtml +
+            `<p style="margin-top:12px; font-size:0.78rem; color:var(--text-muted)">Last checked: ${escapeHtml(data.timestamp || 'N/A')}</p>`;
+    }
+
+    // ══════════════════════════════════════════
+    // Init
+    // ══════════════════════════════════════════
+    initApp();
+</script>
+</body>
+</html>

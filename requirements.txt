@@ -1,0 +1,12 @@
+requests
+python-dotenv
+openai
+Pillow
+plotly
+
+# API Server
+fastapi
+uvicorn[standard]
+python-multipart
+
+pydantic
