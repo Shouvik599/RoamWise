@@ -157,7 +157,7 @@ def clean_json_response(text):
 def get_country_info(country):
     """Fetches the capital, primary currency code, and currency name for a country."""
     try:
-        rc = requests.get(f"[https://restcountries.com/v3.1/name/](https://restcountries.com/v3.1/name/){country}", params={"fullText": "true"})
+        rc = requests.get(f"https://restcountries.com/v3.1/name/{country}", params={"fullText": "true"})
         if rc.status_code != 200:
             return {"error": "Failed to fetch country data from external API."}
         
@@ -194,7 +194,7 @@ def get_currency_conversion_to_inr(currency_code):
         if EXCHANGE_API_KEY:
             params["access_key"] = EXCHANGE_API_KEY
 
-        resp = requests.get("[https://api.exchangerate.host/convert](https://api.exchangerate.host/convert)", params=params, timeout=8)
+        resp = requests.get("https://api.exchangerate.host/convert", params=params, timeout=8)
         resp.raise_for_status()
         data = resp.json()
 
@@ -227,7 +227,7 @@ def get_currency_conversion_to_inr(currency_code):
 def get_countries_for_continent(continent):
     """Fetches countries for a given continent."""
     try:
-        url = f"[https://restcountries.com/v3.1/region/](https://restcountries.com/v3.1/region/){continent}"
+        url = f"https://restcountries.com/v3.1/region/{continent}"
         resp = requests.get(url, params={"fields": "name"})
         if resp.status_code != 200:
             return []
