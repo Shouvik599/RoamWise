@@ -132,20 +132,7 @@ curl -X POST http://localhost:7860/travel/chat \
 
 ## 🎬 Demo & Screenshots
 
-**[Live Demo](https://your-deployed-url.com)** *(deploy & share!)*
-
-```
-[Screenshot: Sidebar with nav]    [Screenshot: Travel Plan UI]
-[320px image]                     [320px image]
-```
-
-**SPA Screenshots**:
-- 🗺️ [Travel Plan](screenshots/travel-plan.png)
-- 💬 [AI Chat](screenshots/chat.png) 
-- 📸 [Landmark Recognition](screenshots/landmark.png)
-- 💰 [Budget](screenshots/budget.png)
-
-*(Add your screenshots to `static/screenshots/`)*
+**[Live Demo](https://shouvik99-roamwise.hf.space)**
 
 ---
 
