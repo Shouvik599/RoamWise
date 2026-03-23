@@ -10,10 +10,6 @@ pinned: false
 # 🌍 RoamWise - AI-Powered Travel Companion
 
 <p align="center">
-  <img src="https://images.unsplash.com/photo-1488646953014-85cb44e25828?q=80&w=1000&auto=format&fit=crop" alt="AI Travel Assistant Banner" width="100%" />
-</p>
-
-<p align="center">
   <img src="https://img.shields.io/badge/FastAPI-1.0.0-brightgreen?style=flat&logo=fastapi" alt="FastAPI"/>
   <img src="https://img.shields.io/badge/NVIDIA-AI-blue?style=flat&logo=nvidia" alt="NVIDIA AI"/>
   <img src="https://img.shields.io/badge/Python-3.10+-blue.svg" alt="Python"/>
