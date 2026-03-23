@@ -1,300 +1,365 @@
-import streamlit as st
-import requests
+# main.py
+
 import os
-from dotenv import load_dotenv
-from openai import OpenAI
+import json
+import logging
 import base64
 from io import BytesIO
-import logging
-import json
-from PIL import Image
 from datetime import datetime
-import plotly.express as px
+from typing import Optional
+from contextlib import asynccontextmanager
 
-# --- Configuration and Initialization ---
+import requests
+from dotenv import load_dotenv
+from openai import OpenAI
+from PIL import Image
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Query
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field, ConfigDict
 
-# Load .env for local development
+# ──────────────────────────────────────────────
+# Configuration & Initialization
+# ──────────────────────────────────────────────
+
 load_dotenv()
 
-def get_secret(key, default=None):
-    """
-    Get secret from Streamlit secrets (cloud) or environment variables (local).
-    Priority: Streamlit Secrets > Environment Variables > Default
-    """
-    try:
-        if key in st.secrets:
-            return st.secrets[key]
-    except Exception:
-        pass
-    
-    env_value = os.getenv(key)
-    if env_value:
-        return env_value
-    
-    return default
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)-8s  %(message)s",
+)
+logger = logging.getLogger(__name__)
 
-# Get API Keys
-NVIDIA_API_KEY = get_secret("NVIDIA_API_KEY")
-EXCHANGE_API_KEY = get_secret("EXCHANGE_API_KEY")
+NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY")
+EXCHANGE_API_KEY = os.getenv("EXCHANGE_API_KEY")
 
-# Session state initialization
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
-
-if "selected_country_for_comparison" not in st.session_state:
-    st.session_state.selected_country_for_comparison = []
-
-if "travel_plan_data" not in st.session_state:
-    st.session_state.travel_plan_data = None
-
-if "country_info_data" not in st.session_state:
-    st.session_state.country_info_data = None
-
-if "conversion_info_data" not in st.session_state:
-    st.session_state.conversion_info_data = None
-
-# Logging configuration
-logging.basicConfig(level=logging.INFO)
-
-# Initialize NVIDIA Client
-nvidia_configured = False
-client = None
-
-if NVIDIA_API_KEY:
-    try:
-        client = OpenAI(
-            base_url="https://integrate.api.nvidia.com/v1",
-            api_key=NVIDIA_API_KEY
-        )
-        nvidia_configured = True
-        logging.info("NVIDIA API configured successfully.")
-    except Exception as e:
-        logging.error("Error configuring NVIDIA API: %s", e)
-        nvidia_configured = False
-        client = None
-else:
-    logging.warning("No NVIDIA API key found. AI features will be disabled.")
-    st.warning("⚠️ NVIDIA API key not configured. AI features will not work.")
-
-# Simple continent list used in UI
 CONTINENTS = ["Africa", "Americas", "Asia", "Europe", "Oceania"]
 
-# --- Health Check Functions ---
+# Global NVIDIA client
+client: Optional[OpenAI] = None
+nvidia_configured: bool = False
 
-def check_nvidia_api():
-    """Check if NVIDIA API is configured."""
+# In-memory chat sessions  (session_id → list[dict])
+chat_sessions: dict[str, list[dict]] = {}
+
+
+def _init_nvidia_client():
+    """Initialise the NVIDIA OpenAI-compatible client once."""
+    global client, nvidia_configured
     if NVIDIA_API_KEY:
-        return {"status": "✅ OK", "details": "NVIDIA API key is configured", "working": True}
+        try:
+            client = OpenAI(
+                base_url="https://integrate.api.nvidia.com/v1",
+                api_key=NVIDIA_API_KEY,
+            )
+            nvidia_configured = True
+            logger.info("NVIDIA API configured successfully.")
+        except Exception as e:
+            logger.error("Error configuring NVIDIA API: %s", e)
     else:
-        return {"status": "❌ Error", "details": "NVIDIA API key not found", "working": False}
+        logger.warning("No NVIDIA API key found. AI features disabled.")
 
-def check_exchange_api():
-    """Check if Exchange API is accessible."""
-    try:
-        response = requests.get(
-            "https://api.exchangerate.host/latest",
-            params={"base": "USD"},
-            timeout=5
-        )
-        if response.status_code == 200:
-            return {"status": "✅ OK", "details": "Exchange API is accessible", "working": True}
-        else:
-            return {"status": "⚠️ Warning", "details": f"Exchange API returned status {response.status_code}", "working": False}
-    except requests.exceptions.Timeout:
-        return {"status": "⚠️ Warning", "details": "Exchange API request timed out", "working": False}
-    except Exception:
-        return {"status": "❌ Error", "details": "Exchange API is unreachable", "working": False}
 
-def check_rest_countries_api():
-    """Check if REST Countries API is accessible."""
-    try:
-        response = requests.get(
-            "https://restcountries.com/v3.1/all",
-            timeout=5
-        )
-        if response.status_code == 200:
-            return {"status": "✅ OK", "details": "REST Countries API is accessible", "working": True}
-        else:
-            return {"status": "⚠️ Warning", "details": f"REST Countries API returned status {response.status_code}", "working": False}
-    except requests.exceptions.Timeout:
-        return {"status": "⚠️ Warning", "details": "REST Countries API request timed out", "working": False}
-    except Exception:
-        return {"status": "❌ Error", "details": "REST Countries API is unreachable", "working": False}
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup / shutdown logic."""
+    _init_nvidia_client()
+    yield
+    # cleanup if needed
 
-def check_nvidia_client():
-    """Check if NVIDIA client is properly initialized."""
-    if nvidia_configured and client:
-        return {"status": "✅ OK", "details": "NVIDIA client is initialized and ready", "working": True}
-    else:
-        return {"status": "⚠️ Warning", "details": "NVIDIA client not initialized", "working": False}
 
-@st.cache_data(ttl=60)
-def get_all_health_checks():
-    """Run all health checks and return results."""
-    return {
-        "nvidia_api": check_nvidia_api(),
-        "exchange_api": check_exchange_api(),
-        "rest_countries_api": check_rest_countries_api(),
-        "nvidia_client": check_nvidia_client(),
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
-    }
+app = FastAPI(
+    title="RoamWise API",
+    description="AI-powered travel companion – REST API",
+    version="1.0.0",
+    lifespan=lifespan,
+)
 
-# --- Utility Functions ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-def clean_json_response(text):
-    """Clean and parse JSON from AI response."""
-    text = text.strip()
-    if text.startswith("```json"):
-        text = text[7:]
-    if text.startswith("```"):
-        text = text[3:]
-    if text.endswith("```"):
-        text = text[:-3]
+# Serve index.html at root (add BEFORE the existing @app.get("/") route)
+# Option 1: Serve from a "static" directory
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/", response_class=FileResponse, tags=["UI"], include_in_schema=False)
+def serve_ui():
+    return FileResponse("static/index.html")
+
+
+
+# ──────────────────────────────────────────────
+# Pydantic Models – Requests
+# ──────────────────────────────────────────────
+
+class TravelPlanRequest(BaseModel):
+    country: str = Field(..., examples=["Japan"])
+
+
+class ItineraryRequest(BaseModel):
+    country: str = Field(..., examples=["Japan"])
+    num_days: int = Field(7, ge=1, le=30)
+    travel_style: str = Field("cultural", examples=["adventure", "relaxation", "cultural", "family", "romantic", "solo backpacking"])
+    budget_level: str = Field("moderate", examples=["budget", "moderate", "luxury"])
+
+
+class BudgetRequest(BaseModel):
+    country: str
+    num_days: int = Field(7, ge=1, le=60)
+    travel_style: str = Field("mid-range")
+    num_travelers: int = Field(2, ge=1, le=10)
+
+
+class AdvisoryRequest(BaseModel):
+    country: str
+    nationality: str = Field("Indian")
+
+
+class ChatRequest(BaseModel):
+    country: str
+    message: str
+    session_id: str = Field("default", description="Unique session id for conversation continuity")
+
+
+class PackingListRequest(BaseModel):
+    country: str
+    num_days: int = Field(7, ge=1, le=60)
+    travel_style: str = Field("leisure")
+    travel_dates: Optional[str] = None
+
+
+class CompareRequest(BaseModel):
+    countries: list[str] = Field(..., min_length=2, max_length=4)
+    criteria: list[str] = Field(
+        default=["Cost of Living", "Safety", "Food Scene"],
+        examples=[["Cost of Living", "Safety", "Weather", "Food Scene", "Nightlife", "Cultural Attractions"]],
+    )
+
+
+class PhrasesRequest(BaseModel):
+    country: str
+
+
+class WeatherActivitiesRequest(BaseModel):
+    country: str
+    month: str = Field(..., examples=["January"])
+
+
+# ──────────────────────────────────────────────
+# Pydantic Models – Responses
+# ──────────────────────────────────────────────
+
+class HealthComponent(BaseModel):
+    status: str
+    details: str
+    working: bool
+
+
+class HealthResponse(BaseModel):
+    nvidia_api: HealthComponent
+    exchange_api: HealthComponent
+    rest_countries_api: HealthComponent
+    nvidia_client: HealthComponent
+    timestamp: str
+    all_ok: bool
+
+
+class CountryInfoResponse(BaseModel):
+    capital: Optional[str] = None
+    currency_code: Optional[str] = None
+    currency_name: Optional[str] = None
+    error: Optional[str] = None
+
+
+class ConversionResponse(BaseModel):
+    from_currency: Optional[str] = Field(None, alias="from")
+    to_currency: str = Field("INR", alias="to")
+    rate: Optional[float] = None
+    error: Optional[str] = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+class ChatResponse(BaseModel):
+    session_id: str
+    response: Optional[str] = None
+    history_length: int = 0
+    error: Optional[str] = None
+
+
+class GenericAIResponse(BaseModel):
+    """Wraps any JSON blob returned by the AI."""
+    data: Optional[dict | list] = None
+    error: Optional[str] = None
+
+
+# ──────────────────────────────────────────────
+# Utility helpers
+# ──────────────────────────────────────────────
+import re
+def clean_json_response(text: str) -> str:
+    # Find the first '{' and last '}' to strip any surrounding text or markdown
+    match = re.search(r'(\{.*\}|\[.*\])', text, re.DOTALL)
+    if match:
+        return match.group(0).strip()
     return text.strip()
 
-# --- Core API Functions ---
 
-def get_country_info(country):
-    """Fetches the capital, primary currency code, and currency name for a country."""
+def _require_nvidia():
+    if not nvidia_configured or client is None:
+        raise HTTPException(
+            status_code=503,
+            detail="NVIDIA API client is not configured. Set NVIDIA_API_KEY.",
+        )
+
+
+# ──────────────────────────────────────────────
+# Core API helpers (external services)
+# ──────────────────────────────────────────────
+
+def fetch_country_info(country: str) -> dict:
     try:
-        rc = requests.get(f"https://restcountries.com/v3.1/name/{country}", params={"fullText": "true"})
+        rc = requests.get(
+            f"https://restcountries.com/v3.1/name/{country}",
+            params={"fullText": "true"},
+            timeout=8,
+        )
         if rc.status_code != 200:
-            return {"error": "Failed to fetch country data from external API."}
-        
+            return {"error": f"REST Countries API returned {rc.status_code}"}
         cdata = rc.json()[0]
         capital = cdata.get("capital", ["Unknown"])[0]
         currencies = cdata.get("currencies", {})
-        
         if currencies:
             currency_code = list(currencies.keys())[0]
             currency_name = currencies[currency_code].get("name", "")
         else:
             currency_code = None
             currency_name = "None"
-            
         return {
             "capital": capital,
             "currency_code": currency_code,
             "currency_name": currency_name,
-            "error": None
+            "error": None,
         }
     except Exception as e:
-        logging.error("Error in get_country_info for %s: %s", country, e)
-        return {"error": "An error occurred while processing country data."}
+        logger.error("fetch_country_info(%s): %s", country, e)
+        return {"error": str(e)}
 
-def get_currency_conversion_to_inr(currency_code):
-    """Fetches the live exchange rate from the specified currency to INR."""
-    conversion_info = {"from": currency_code, "to": "INR", "rate": None, "error": None}
+
+def fetch_currency_conversion(currency_code: str) -> dict:
+    info: dict = {"from": currency_code, "to": "INR", "rate": None, "error": None}
     if not currency_code:
-        conversion_info["error"] = "No currency code provided for conversion."
-        return conversion_info
-
+        info["error"] = "No currency code provided."
+        return info
     try:
-        params = {"from": currency_code, "to": "INR", "amount": 1}
+        params: dict = {"from": currency_code, "to": "INR", "amount": 1}
         if EXCHANGE_API_KEY:
             params["access_key"] = EXCHANGE_API_KEY
-
-        resp = requests.get("https://api.exchangerate.host/convert", params=params, timeout=8)
+        resp = requests.get(
+            "https://api.exchangerate.host/convert",
+            params=params,
+            timeout=8,
+        )
         resp.raise_for_status()
         data = resp.json()
-
         if isinstance(data, dict) and data.get("success") is False:
-            err = data.get("error", {})
-            conversion_info["error"] = err.get("info") if isinstance(err, dict) else str(err)
-            return conversion_info
-
+            info["error"] = str(data.get("error", "Unknown exchange API error"))
+            return info
         rate = None
         if isinstance(data, dict):
             if data.get("result") is not None:
-                rate = data.get("result")
+                rate = data["result"]
             elif data.get("quotes"):
-                quotes = data.get("quotes", {})
-                for k, v in quotes.items():
+                for k, v in data["quotes"].items():
                     if k.endswith("INR"):
                         rate = v
                         break
             elif data.get("rates"):
-                rate = data.get("rates", {}).get("INR")
-
-        conversion_info["rate"] = rate
+                rate = data["rates"].get("INR")
+        info["rate"] = rate
         if rate is None:
-            conversion_info["error"] = "API returned no exchange rate."
+            info["error"] = "API returned no exchange rate."
     except Exception as e:
-        conversion_info["error"] = f"Conversion failed: {str(e)}"
+        info["error"] = f"Conversion failed: {e}"
+    return info
 
-    return conversion_info
 
-def get_countries_for_continent(continent):
-    """Fetches countries for a given continent."""
+def fetch_countries_for_continent(continent: str) -> list[str]:
     try:
-        url = f"https://restcountries.com/v3.1/region/{continent}"
-        resp = requests.get(url, params={"fields": "name"})
+        resp = requests.get(
+            f"https://restcountries.com/v3.1/region/{continent}",
+            params={"fields": "name"},
+            timeout=8,
+        )
         if resp.status_code != 200:
             return []
         data = resp.json()
-        countries = sorted([c.get("name", {}).get("common", "") for c in data])
-        return countries
+        return sorted(c.get("name", {}).get("common", "") for c in data)
     except Exception as e:
-        logging.error("Error fetching countries: %s", e)
+        logger.error("fetch_countries_for_continent: %s", e)
         return []
 
-# --- AI Generation Functions (NVIDIA) ---
 
-def call_nvidia_llm(prompt, temperature=0.2, top_p=0.7, max_tokens=2048):
-    """Calls the NVIDIA Llama 3.3 70B model."""
-    if not client:
-        raise Exception("NVIDIA API client not configured")
-    
-    try:
-        completion = client.chat.completions.create(
-            model="meta/llama-3.3-70b-instruct",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=temperature,
-            top_p=top_p,
-            max_tokens=max_tokens,
-            stream=False
-        )
-        return completion.choices[0].message.content
-    except Exception as e:
-        logging.error(f"Error calling NVIDIA LLM: {e}")
-        raise
+# ──────────────────────────────────────────────
+# NVIDIA LLM helpers
+# ──────────────────────────────────────────────
 
-def call_nvidia_vision_llm(prompt, image_data, temperature=0.2, top_p=0.7, max_tokens=1024):
-    """Calls the NVIDIA Llama 3.2 90B Vision model for image analysis."""
-    if not client:
-        raise Exception("NVIDIA API client not configured")
-    try:
-        # Convert uploaded file/Image to base64
-        if isinstance(image_data, Image.Image):
-            buffered = BytesIO()
-            image_data.convert('RGB').save(buffered, format="JPEG")
-            img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
-        else:
-            image_bytes = image_data.getvalue()
-            img_str = base64.b64encode(image_bytes).decode("utf-8")
-            
-        image_url = f"data:image/jpeg;base64,{img_str}"
-        
-        completion = client.chat.completions.create(
-            model="meta/llama-3.2-90b-vision-instruct",
-            messages=[{
+def call_nvidia_llm(
+    prompt: str,
+    temperature: float = 0.2,
+    top_p: float = 0.7,
+    max_tokens: int = 2048,
+) -> str:
+    _require_nvidia()
+    completion = client.chat.completions.create(  # type: ignore[union-attr]
+        model="meta/llama-3.3-70b-instruct",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=temperature,
+        top_p=top_p,
+        max_tokens=max_tokens,
+        stream=False,
+    )
+    return completion.choices[0].message.content
+
+
+def call_nvidia_vision_llm(
+    prompt: str,
+    image_bytes: bytes,
+    temperature: float = 0.2,
+    top_p: float = 0.7,
+    max_tokens: int = 1024,
+) -> str:
+    _require_nvidia()
+    img_b64 = base64.b64encode(image_bytes).decode()
+    image_url = f"data:image/jpeg;base64,{img_b64}"
+    completion = client.chat.completions.create(  # type: ignore[union-attr]
+        model="meta/llama-3.2-90b-vision-instruct",
+        messages=[
+            {
                 "role": "user",
                 "content": [
                     {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": image_url}}
-                ]
-            }],
-            temperature=temperature,
-            top_p=top_p,
-            max_tokens=max_tokens,
-        )
-        return completion.choices[0].message.content
-    except Exception as e:
-        logging.error(f"Error calling NVIDIA Vision LLM: {e}")
-        raise
+                    {"type": "image_url", "image_url": {"url": image_url}},
+                ],
+            }
+        ],
+        temperature=temperature,
+        top_p=top_p,
+        max_tokens=max_tokens,
+    )
+    return completion.choices[0].message.content
 
-def generate_travel_plan(country):
-    """Generates a comprehensive travel plan for a country."""
+
+# ──────────────────────────────────────────────
+# Prompt-based generation functions
+# ──────────────────────────────────────────────
+
+def _generate_travel_plan(country: str) -> dict:
     prompt = (
         f"Generate a travel guide for {country} as a single, valid JSON object. "
         "Do not include any introductory text, closing text, or markdown formatting like ```json. "
@@ -302,7 +367,8 @@ def generate_travel_plan(country):
         "1. 'cities': An array of 4-5 must-visit city objects. Each city object should have:\n"
         "   - 'name': The city's name (string).\n"
         "   - 'reason': A brief, compelling reason to visit (string).\n"
-        "2. 'activities': An object where each key is a city name from the 'cities' list. The value for each city key should be an array of 3 activity objects. Each activity object should have:\n"
+        "2. 'activities': An object where each key is a city name from the 'cities' list. "
+        "The value for each city key should be an array of 3 activity objects. Each activity object should have:\n"
         "   - 'name': The activity name (string).\n"
         "   - 'description': A short description of the activity (string).\n"
         "   - 'price_inr': An estimated price in Indian Rupees (INR) as an integer. Use 0 for free activities.\n"
@@ -310,903 +376,519 @@ def generate_travel_plan(country):
         "   - 'name': The food's name (string).\n"
         "   - 'description': A brief description (string).\n"
         "   - 'image_query': A search query for finding an image of this food (string).\n"
-        "4. 'tips': An array of 5-6 essential travel tip strings for visitors.\n\n"
-        "Example structure for 'activities' for one city:\n"
-        "\"activities\": {\n"
-        "  \"CityName\": [\n"
-        "    { \"name\": \"Explore Old Town\", \"description\": \"Wander through historic streets.\", \"price_inr\": 500 },\n"
-        "    { \"name\": \"Visit National Museum\", \"description\": \"Learn about the country's history.\", \"price_inr\": 800 }\n"
-        "  ]\n"
-        "}"
+        "4. 'tips': An array of 5-6 essential travel tip strings for visitors.\n"
+    )
+    raw = call_nvidia_llm(prompt, max_tokens=4096)
+    logging.info("Travel plan prompt response: %s", clean_json_response(raw))
+    return json.loads(clean_json_response(raw))
+
+
+def _generate_itinerary(country: str, num_days: int, style: str, budget: str) -> dict:
+    prompt = f"""Create a detailed {num_days}-day travel itinerary for {country}.
+
+Travel Style: {style}
+Budget Level: {budget}
+
+Return a JSON object with this structure:
+{{
+    "itinerary": [
+        {{
+            "day": 1,
+            "title": "Day title/theme",
+            "city": "City name",
+            "morning": {{"activity":"...","description":"...","duration":"2 hours","cost_inr":500}},
+            "afternoon": {{"activity":"...","description":"...","duration":"3 hours","cost_inr":1000}},
+            "evening": {{"activity":"...","description":"...","duration":"2 hours","cost_inr":800}},
+            "meals": {{"breakfast":"...","lunch":"...","dinner":"..."}},
+            "accommodation": "Hotel/area suggestion",
+            "travel_tip": "Specific tip for this day"
+        }}
+    ],
+    "total_estimated_cost_inr": 50000,
+    "packing_essentials": ["item1","item2"],
+    "best_time_to_visit": "Month or season"
+}}
+Only output valid JSON, no markdown."""
+    raw = call_nvidia_llm(prompt, max_tokens=4096)
+    logging.info("Itinerary prompt response: %s", clean_json_response(raw))
+    return json.loads(clean_json_response(raw))
+
+
+def _generate_budget(country: str, days: int, style: str, travelers: int) -> dict:
+    prompt = f"""Create a detailed travel budget for {travelers} traveler(s)
+visiting {country} for {days} days.  Travel style: {style}
+
+Return JSON with all costs in INR:
+{{
+    "summary": {{"total_per_person":0,"total_trip_cost":0,"daily_average_per_person":0}},
+    "breakdown": {{
+        "accommodation": {{"total":0,"daily_rate":0,"hotel_type":"","tips":""}},
+        "food": {{"total":0,"daily_rate":0,"breakdown":{{"breakfast":0,"lunch":0,"dinner":0,"snacks":0}},"tips":""}},
+        "transportation": {{"total":0,"local_transport_daily":0,"intercity_estimate":0,"tips":""}},
+        "activities": {{"total":0,"popular_activities":[{{"name":"","cost":0}}],"tips":""}},
+        "miscellaneous": {{"total":0,"includes":["Tips","Souvenirs","Emergency fund"]}}
+    }},
+    "money_saving_tips": [],
+    "hidden_costs_warning": [],
+    "best_value_period": ""
+}}
+Only output valid JSON."""
+    raw = call_nvidia_llm(prompt, max_tokens=3000)
+    logging.info("Budget prompt response: %s", clean_json_response(raw))
+    return json.loads(clean_json_response(raw))
+
+
+def _get_advisory(country: str, nationality: str) -> dict:
+    prompt = f"""Provide comprehensive travel advisory for {nationality} travelers visiting {country}.
+
+Return JSON:
+{{
+    "safety_rating":"Safe/Moderate Caution/Exercise Caution/Reconsider Travel",
+    "safety_score":8,
+    "visa_requirements":{{
+        "visa_required":true,"visa_type":"","duration_allowed":"","processing_time":"",
+        "approximate_cost_inr":0,"documents_required":[],"apply_link":""
+    }},
+    "health_advisories":[{{"type":"","details":"","mandatory":false}}],
+    "safety_tips":[{{"category":"","tips":[]}}],
+    "areas_to_avoid":[],
+    "emergency_numbers":{{"police":"","ambulance":"","tourist_helpline":"","indian_embassy":""}},
+    "local_laws_to_know":[],
+    "scams_to_watch":[]
+}}
+Only output valid JSON."""
+    raw = call_nvidia_llm(prompt)
+    logging.info("Advisory prompt response: %s", clean_json_response(raw))
+    return json.loads(clean_json_response(raw))
+
+
+def _identify_landmark(image_bytes: bytes, country_hint: Optional[str]) -> dict:
+    hint = f"The image is likely from {country_hint}" if country_hint else ""
+    prompt = f"""Analyze this image and identify any landmarks, tourist attractions,
+or notable locations visible.
+{hint}
+
+Return JSON:
+{{
+    "identified":true,
+    "landmark_name":"Name of the landmark",
+    "location":"City, Country",
+    "description":"Brief history and significance",
+    "visitor_info":{{"best_time_to_visit":"","typical_visit_duration":"","entry_fee_inr":0,"tips":[]}},
+    "nearby_attractions":[],
+    "photo_tips":""
+}}
+If no landmark is identifiable, set identified to false and provide a general description.
+Only output valid JSON."""
+    raw = call_nvidia_vision_llm(prompt, image_bytes)
+    logging.info("Vision prompt response: %s", clean_json_response(raw))
+    return json.loads(clean_json_response(raw))
+
+
+def _generate_packing_list(country: str, days: int, style: str, dates: Optional[str]) -> dict:
+    date_ctx = f"Travel dates: {dates}" if dates else "General packing advice"
+    prompt = f"""Generate a comprehensive packing list for a {days}-day trip to {country}.
+Travel style: {style}
+{date_ctx}
+
+Return JSON:
+{{
+    "weather_summary":"Expected weather conditions",
+    "categories":{{
+        "clothing":[{{"item":"","quantity":2,"notes":""}}],
+        "toiletries":[...],
+        "electronics":[...],
+        "documents":[...],
+        "health_safety":[...],
+        "accessories":[...],
+        "country_specific":[...]
+    }},
+    "pro_tips":[],
+    "items_to_avoid":[]
+}}
+Only output valid JSON."""
+    raw = call_nvidia_llm(prompt, max_tokens=2048)
+    logging.info("Packing list prompt response: %s", clean_json_response(raw))
+    return json.loads(clean_json_response(raw))
+
+
+def _compare_destinations(countries: list[str], criteria: list[str]) -> dict:
+    prompt = f"""Compare these travel destinations: {', '.join(countries)}
+Compare based on these criteria: {', '.join(criteria)}
+
+Return ONLY a valid JSON object. 
+    IMPORTANT: Every nested object must be closed with a curly brace '}}'. 
+    Do NOT use square brackets '[]' unless you are defining an array.{{
+    "comparison_table":{{
+        "criteria_name":{{
+            "Country1":{{"score":8,"details":"explanation"}}
+        }}
+    }},
+    "overall_winner":"Country name",
+    "winner_reason":"Why this country wins overall",
+    "best_for":{{"budget_travelers":"","families":"","adventure_seekers":"","foodies":"","culture_lovers":""}},
+    "summary":"Brief overall comparison summary"
+}}
+Score each country 1-10. Only output valid JSON."""
+    raw = call_nvidia_llm(prompt, max_tokens=3000)
+    logging.info("Comparison prompt response: %s", clean_json_response(raw))
+    return json.loads(clean_json_response(raw))
+
+
+def _get_phrases(country: str) -> dict:
+    prompt = f"""For travelers visiting {country}, provide essential phrases.
+
+Return JSON:
+{{
+    "primary_language":"Language name",
+    "greeting_culture":"Brief note on greeting customs",
+    "categories":{{
+        "greetings":[{{"english":"Hello","local":"translation","pronunciation":"phonetic"}}],
+        "directions":[...],
+        "dining":[...],
+        "emergencies":[...]
+    }},
+    "cultural_notes":[],
+    "common_mistakes":[]
+}}
+Include 5-8 phrases per category. Only output valid JSON."""
+    raw = call_nvidia_llm(prompt, max_tokens=2048)
+    logging.info("Phrases prompt response: %s", clean_json_response(raw))
+    return json.loads(clean_json_response(raw))
+
+
+def _get_weather_activities(country: str, month: str) -> dict:
+    prompt = f"""For {country} in {month}, provide weather-based activity recommendations.
+
+Return JSON:
+{{
+    "weather_summary":{{"temperature_range":"","rainfall":"","humidity":"","general_conditions":""}},
+    "is_peak_season":true,
+    "tourist_crowd_level":"High/Medium/Low",
+    "recommended_activities":[{{"activity":"","why_this_month":"","best_locations":[],"what_to_pack":[]}}],
+    "activities_to_avoid":[{{"activity":"","reason":""}}],
+    "regional_differences":[{{"region":"","weather":"","best_activities":[]}}],
+    "festivals_events":[{{"name":"","date":"","location":"","description":""}}],
+    "packing_for_weather":[]
+}}
+Only output valid JSON."""
+    raw = call_nvidia_llm(prompt, max_tokens=2048)
+    logging.info("Weather activities prompt response: %s", clean_json_response(raw))
+    return json.loads(clean_json_response(raw))
+
+
+# ──────────────────────────────────────────────
+# ROUTES
+# ──────────────────────────────────────────────
+
+# ---------- Health ----------
+
+@app.get("/health", response_model=HealthResponse, tags=["System"])
+def health_check():
+    """Run all system health checks."""
+
+    def _check_nvidia_api() -> dict:
+        if NVIDIA_API_KEY:
+            return {"status": "✅ OK", "details": "NVIDIA API key is configured", "working": True}
+        return {"status": "❌ Error", "details": "NVIDIA API key not found", "working": False}
+
+    def _check_exchange_api() -> dict:
+        try:
+            r = requests.get("https://api.exchangerate.host/latest", params={"base": "USD"}, timeout=5)
+            if r.status_code == 200:
+                return {"status": "✅ OK", "details": "Exchange API is accessible", "working": True}
+            return {"status": "⚠️ Warning", "details": f"Status {r.status_code}", "working": False}
+        except Exception:
+            return {"status": "❌ Error", "details": "Exchange API unreachable", "working": False}
+
+    def _check_countries_api() -> dict:
+        try:
+            r = requests.get("https://restcountries.com/v3.1/all", timeout=5)
+            if r.status_code == 200:
+                return {"status": "✅ OK", "details": "REST Countries API accessible", "working": True}
+            return {"status": "⚠️ Warning", "details": f"Status {r.status_code}", "working": False}
+        except Exception:
+            return {"status": "❌ Error", "details": "REST Countries API unreachable", "working": False}
+
+    def _check_nvidia_client() -> dict:
+        if nvidia_configured and client:
+            return {"status": "✅ OK", "details": "NVIDIA client initialized", "working": True}
+        return {"status": "⚠️ Warning", "details": "NVIDIA client not initialized", "working": False}
+
+    nv = _check_nvidia_api()
+    ex = _check_exchange_api()
+    rc = _check_countries_api()
+    nc = _check_nvidia_client()
+
+    return HealthResponse(
+        nvidia_api=HealthComponent(**nv),
+        exchange_api=HealthComponent(**ex),
+        rest_countries_api=HealthComponent(**rc),
+        nvidia_client=HealthComponent(**nc),
+        timestamp=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+        all_ok=all(c["working"] for c in [nv, ex, rc, nc]),
     )
 
-    if not nvidia_configured:
-        return {"error": "NVIDIA API not configured."}
+
+# ---------- Geography ----------
+
+@app.get("/continents", tags=["Geography"])
+def list_continents():
+    """Return the list of supported continents."""
+    return {"continents": CONTINENTS}
+
+
+@app.get("/countries/{continent}", tags=["Geography"])
+def list_countries(continent: str):
+    """Return countries for a continent."""
+    if continent not in CONTINENTS:
+        raise HTTPException(status_code=400, detail=f"Invalid continent. Choose from {CONTINENTS}")
+    countries = fetch_countries_for_continent(continent)
+    return {"continent": continent, "countries": countries, "count": len(countries)}
+
+
+# ---------- Country Info ----------
+
+@app.get("/country/{country}/info", response_model=CountryInfoResponse, tags=["Country Info"])
+def country_info(country: str):
+    """Capital, currency code & name for a country."""
+    data = fetch_country_info(country)
+    if data.get("error"):
+        raise HTTPException(status_code=404, detail=data["error"])
+    return CountryInfoResponse(**data)
+
+
+@app.get("/currency/convert/{currency_code}", tags=["Country Info"])
+def currency_to_inr(currency_code: str):
+    """Live exchange rate from *currency_code* → INR."""
+    data = fetch_currency_conversion(currency_code)
+    if data.get("error") and data.get("rate") is None:
+        raise HTTPException(status_code=502, detail=data["error"])
+    return data
+
+
+# ---------- AI Travel Features ----------
+
+@app.post("/travel/plan", response_model=GenericAIResponse, tags=["AI Travel"])
+def travel_plan(req: TravelPlanRequest):
+    """Generate a comprehensive travel plan (cities, activities, foods, tips)."""
+    _require_nvidia()
+    try:
+        data = _generate_travel_plan(req.country)
+        return GenericAIResponse(data=data)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=502, detail=f"AI returned invalid JSON: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/travel/itinerary", response_model=GenericAIResponse, tags=["AI Travel"])
+def travel_itinerary(req: ItineraryRequest):
+    """Generate a day-by-day itinerary."""
+    _require_nvidia()
+    try:
+        data = _generate_itinerary(req.country, req.num_days, req.travel_style, req.budget_level)
+        return GenericAIResponse(data=data)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=502, detail=f"AI returned invalid JSON: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/travel/budget", response_model=GenericAIResponse, tags=["AI Travel"])
+def travel_budget(req: BudgetRequest):
+    """Generate a detailed trip budget breakdown."""
+    _require_nvidia()
+    try:
+        data = _generate_budget(req.country, req.num_days, req.travel_style, req.num_travelers)
+        return GenericAIResponse(data=data)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=502, detail=f"AI returned invalid JSON: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/travel/advisory", response_model=GenericAIResponse, tags=["AI Travel"])
+def travel_advisory(req: AdvisoryRequest):
+    """Safety info, visa requirements & health advisories."""
+    _require_nvidia()
+    try:
+        data = _get_advisory(req.country, req.nationality)
+        return GenericAIResponse(data=data)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=502, detail=f"AI returned invalid JSON: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/travel/chat", response_model=ChatResponse, tags=["AI Travel"])
+def travel_chat(req: ChatRequest):
+    """Conversational AI assistant for a destination."""
+    _require_nvidia()
+
+    history = chat_sessions.setdefault(req.session_id, [])
+    history_text = "\n".join(
+        f"User: {h['user']}\nAssistant: {h['assistant']}" for h in history[-5:]
+    )
+
+    prompt = f"""You are an expert travel assistant for {req.country}.
+Answer the user's question helpfully and concisely.
+
+Previous conversation:
+{history_text}
+
+User's new question: {req.message}
+
+Provide a helpful, accurate response. If you're unsure about specific current
+information (prices, hours), mention that the user should verify locally."""
 
     try:
-        response_text = call_nvidia_llm(prompt, max_tokens=4096)
-        at = clean_json_response(response_text)
-        return json.loads(at)
+        answer = call_nvidia_llm(prompt)
+        history.append({"user": req.message, "assistant": answer})
+        return ChatResponse(session_id=req.session_id, response=answer, history_length=len(history))
     except Exception as e:
-        logging.error("Generation failed: %s", e)
-        return {"error": str(e)}
+        raise HTTPException(status_code=500, detail=str(e))
 
-def get_travel_chat_response(country, user_question, chat_history):
-    """AI chatbot for answering travel-related questions."""
-    if not nvidia_configured:
-        return {"error": "NVIDIA API not configured"}
-    
-    history_context = "\n".join([
-        f"User: {h['user']}\nAssistant: {h['assistant']}" 
-        for h in chat_history[-5:]
-    ])
-    
-    prompt = f"""You are an expert travel assistant for {country}. 
-    Answer the user's question helpfully and concisely.
-    
-    Previous conversation:
-    {history_context}
-    
-    User's new question: {user_question}
-    
-    Provide a helpful, accurate response. If you're unsure about specific current 
-    information (prices, hours), mention that the user should verify locally.
+
+@app.delete("/travel/chat/{session_id}", tags=["AI Travel"])
+def clear_chat(session_id: str):
+    """Clear chat history for a session."""
+    chat_sessions.pop(session_id, None)
+    return {"message": f"Chat session '{session_id}' cleared."}
+
+
+@app.post("/travel/packing-list", response_model=GenericAIResponse, tags=["AI Travel"])
+def packing_list(req: PackingListRequest):
+    """Generate a personalised packing list."""
+    _require_nvidia()
+    try:
+        data = _generate_packing_list(req.country, req.num_days, req.travel_style, req.travel_dates)
+        return GenericAIResponse(data=data)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=502, detail=f"AI returned invalid JSON: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/travel/compare", response_model=GenericAIResponse, tags=["AI Travel"])
+def compare_destinations_endpoint(req: CompareRequest):
+    """Compare 2-4 destinations across chosen criteria."""
+    _require_nvidia()
+    try:
+        data = _compare_destinations(req.countries, req.criteria)
+        return GenericAIResponse(data=data)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=502, detail=f"AI returned invalid JSON: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/travel/phrases", response_model=GenericAIResponse, tags=["AI Travel"])
+def essential_phrases(req: PhrasesRequest):
+    """Essential travel phrases in the local language."""
+    _require_nvidia()
+    try:
+        data = _get_phrases(req.country)
+        return GenericAIResponse(data=data)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=502, detail=f"AI returned invalid JSON: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/travel/weather-activities", response_model=GenericAIResponse, tags=["AI Travel"])
+def weather_activities(req: WeatherActivitiesRequest):
+    """Weather-based activity recommendations for a given month."""
+    _require_nvidia()
+    try:
+        data = _get_weather_activities(req.country, req.month)
+        return GenericAIResponse(data=data)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=502, detail=f"AI returned invalid JSON: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------- Landmark Recognition (image upload) ----------
+
+@app.post("/landmark/identify", response_model=GenericAIResponse, tags=["AI Vision"])
+async def identify_landmark_endpoint(
+    image: UploadFile = File(..., description="Image file (jpg/jpeg/png/webp)"),
+    country_hint: Optional[str] = Form(None, description="Optional country hint"),
+):
+    """Upload an image to identify landmarks via NVIDIA Vision model."""
+    _require_nvidia()
+
+    allowed = {"image/jpeg", "image/png", "image/webp"}
+    if image.content_type not in allowed:
+        raise HTTPException(status_code=400, detail=f"Unsupported file type: {image.content_type}")
+
+    image_bytes = await image.read()
+
+    # Ensure it's a valid image and convert to JPEG bytes
+    try:
+        pil_img = Image.open(BytesIO(image_bytes)).convert("RGB")
+        buf = BytesIO()
+        pil_img.save(buf, format="JPEG")
+        jpeg_bytes = buf.getvalue()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not decode the uploaded image.")
+
+    try:
+        data = _identify_landmark(jpeg_bytes, country_hint)
+        return GenericAIResponse(data=data)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=502, detail=f"AI returned invalid JSON: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------- Composite endpoint (mirrors the Streamlit "Get Travel Plan" button) ----------
+
+@app.get("/travel/full/{country}", tags=["AI Travel"])
+def full_travel_info(country: str):
     """
-    
-    try:
-        response_text = call_nvidia_llm(prompt)
-        return {"response": response_text}
-    except Exception as e:
-        logging.error("Chat error: %s", e)
-        return {"error": str(e)}
-
-def generate_detailed_itinerary(country, num_days, travel_style, budget_level):
-    """Generates a detailed day-by-day travel itinerary."""
-    prompt = f"""Create a detailed {num_days}-day travel itinerary for {country}.
-    
-    Travel Style: {travel_style}
-    Budget Level: {budget_level}
-    
-    Return a JSON object with this structure:
-    {{
-        "itinerary": [
-            {{
-                "day": 1,
-                "title": "Day title/theme",
-                "city": "City name",
-                "morning": {{
-                    "activity": "Activity name",
-                    "description": "What to do",
-                    "duration": "2 hours",
-                    "cost_inr": 500
-                }},
-                "afternoon": {{
-                    "activity": "Activity name",
-                    "description": "What to do",
-                    "duration": "3 hours",
-                    "cost_inr": 1000
-                }},
-                "evening": {{
-                    "activity": "Activity name",
-                    "description": "What to do",
-                    "duration": "2 hours",
-                    "cost_inr": 800
-                }},
-                "meals": {{
-                    "breakfast": "Restaurant/food suggestion",
-                    "lunch": "Restaurant/food suggestion",
-                    "dinner": "Restaurant/food suggestion"
-                }},
-                "accommodation": "Hotel/area suggestion",
-                "travel_tip": "Specific tip for this day"
-            }}
-        ],
-        "total_estimated_cost_inr": 50000,
-        "packing_essentials": ["item1", "item2"],
-        "best_time_to_visit": "Month or season"
-    }}
-    
-    Make it realistic and detailed. Only output valid JSON, no markdown.
+    All-in-one: country info + currency conversion + AI travel plan.
+    Mirrors the Streamlit 'Get Travel Plan' button.
     """
-    
-    try:
-        response_text = call_nvidia_llm(prompt, max_tokens=4096)
-        return json.loads(clean_json_response(response_text))
-    except Exception as e:
-        return {"error": str(e)}
+    info = fetch_country_info(country)
+    conversion = (
+        fetch_currency_conversion(info["currency_code"])
+        if info.get("currency_code")
+        else {"from": None, "to": "INR", "rate": None, "error": "No currency code"}
+    )
 
-def generate_budget_plan(country, num_days, travel_style, num_travelers):
-    """Creates a detailed budget breakdown for a trip."""
-    prompt = f"""Create a detailed travel budget for {num_travelers} traveler(s) 
-    visiting {country} for {num_days} days.
-    Travel style: {travel_style}
-    
-    Return JSON with all costs in INR:
-    {{
-        "summary": {{
-            "total_per_person": 50000,
-            "total_trip_cost": 100000,
-            "daily_average_per_person": 7000
-        }},
-        "breakdown": {{
-            "accommodation": {{
-                "total": 20000,
-                "daily_rate": 3000,
-                "hotel_type": "3-star hotel",
-                "tips": "Book in advance for better rates"
-            }},
-            "food": {{
-                "total": 15000,
-                "daily_rate": 2000,
-                "breakdown": {{
-                    "breakfast": 300,
-                    "lunch": 600,
-                    "dinner": 800,
-                    "snacks": 300
-                }},
-                "tips": "Street food is authentic and cheaper"
-            }},
-            "transportation": {{
-                "total": 8000,
-                "local_transport_daily": 500,
-                "intercity_estimate": 3000,
-                "tips": "Use public transport to save money"
-            }},
-            "activities": {{
-                "total": 10000,
-                "popular_activities": [
-                    {{"name": "Activity", "cost": 500}}
-                ],
-                "tips": "Book online for discounts"
-            }},
-            "miscellaneous": {{
-                "total": 5000,
-                "includes": ["Tips", "Souvenirs", "Emergency fund"]
-            }}
-        }},
-        "money_saving_tips": ["tip1", "tip2", "tip3"],
-        "hidden_costs_warning": ["Visa fees", "Travel insurance"],
-        "best_value_period": "Off-season months for better deals"
-    }}
-    
-    Only output valid JSON.
-    """
-    try:
-        response_text = call_nvidia_llm(prompt, max_tokens=3000)
-        return json.loads(clean_json_response(response_text))
-    except Exception as e:
-        return {"error": str(e)}
+    plan: dict | None = None
+    plan_error: str | None = None
+    if nvidia_configured:
+        try:
+            plan = _generate_travel_plan(country)
+        except Exception as e:
+            plan_error = str(e)
 
-def get_travel_advisory(country, nationality="Indian"):
-    """Gets safety information and visa requirements."""
-    prompt = f"""Provide comprehensive travel advisory for {nationality} travelers 
-    visiting {country}.
-    
-    Return JSON:
-    {{
-        "safety_rating": "Safe/Moderate Caution/Exercise Caution/Reconsider Travel",
-        "safety_score": 8,
-        "visa_requirements": {{
-            "visa_required": true,
-            "visa_type": "Tourist Visa / E-Visa / Visa on Arrival / Visa Free",
-            "duration_allowed": "30/60/90 days",
-            "processing_time": "3-5 business days",
-            "approximate_cost_inr": 5000,
-            "documents_required": ["Passport", "Photos", "Bank statements"],
-            "apply_link": "Official visa application website"
-        }},
-        "health_advisories": [
-            {{
-                "type": "Vaccination",
-                "details": "Recommended vaccines",
-                "mandatory": false
-            }}
-        ],
-        "safety_tips": [
-            {{
-                "category": "General Safety",
-                "tips": ["tip1", "tip2"]
-            }}
-        ],
-        "areas_to_avoid": ["Area name - reason"],
-        "emergency_numbers": {{
-            "police": "100",
-            "ambulance": "102",
-            "tourist_helpline": "number",
-            "indian_embassy": "embassy contact"
-        }},
-        "local_laws_to_know": ["Important law 1", "law 2"],
-        "scams_to_watch": ["Common scam 1", "scam 2"]
-    }}
-    
-    Only output valid JSON.
-    """
-    try:
-        response_text = call_nvidia_llm(prompt)
-        return json.loads(clean_json_response(response_text))
-    except Exception as e:
-        return {"error": str(e)}
+    return {
+        "country": country,
+        "info": info,
+        "conversion": conversion,
+        "travel_plan": plan,
+        "travel_plan_error": plan_error,
+    }
 
-def identify_landmark(image_data, country_hint=None):
-    """Identifies landmarks from uploaded images using NVIDIA Vision model."""
-    prompt = f"""Analyze this image and identify any landmarks, tourist attractions, 
-    or notable locations visible.
-    
-    {"The image is likely from " + country_hint if country_hint else ""}
-    
-    Return JSON:
-    {{
-        "identified": true,
-        "landmark_name": "Name of the landmark",
-        "location": "City, Country",
-        "description": "Brief history and significance",
-        "visitor_info": {{
-            "best_time_to_visit": "Morning/Afternoon/Evening",
-            "typical_visit_duration": "2 hours",
-            "entry_fee_inr": 500,
-            "tips": ["tip1", "tip2"]
-        }},
-        "nearby_attractions": ["attraction1", "attraction2"],
-        "photo_tips": "Best angles or times for photography"
-    }}
-    
-    If no landmark is identifiable, set identified to false and provide 
-    a general description of what you see.
-    Only output valid JSON.
-    """
-    try:
-        response_text = call_nvidia_vision_llm(prompt, image_data)
-        return json.loads(clean_json_response(response_text))
-    except Exception as e:
-        return {"error": str(e)}
 
-def generate_packing_list(country, num_days, travel_style, travel_dates=None):
-    """Generates a personalized packing list based on destination and travel details."""
-    date_context = f"Travel dates: {travel_dates}" if travel_dates else "General packing advice"
-    
-    prompt = f"""Generate a comprehensive packing list for a {num_days}-day trip to {country}.
-    Travel style: {travel_style}
-    {date_context}
-    
-    Return JSON:
-    {{
-        "weather_summary": "Expected weather conditions",
-        "categories": {{
-            "clothing": [
-                {{"item": "item name", "quantity": 2, "notes": "optional note"}}
-            ],
-            "toiletries": [...],
-            "electronics": [...],
-            "documents": [...],
-            "health_safety": [...],
-            "accessories": [...],
-            "country_specific": [...]
-        }},
-        "pro_tips": ["tip1", "tip2"],
-        "items_to_avoid": ["item1 - reason"]
-    }}
-    Only output valid JSON.
-    """
-    try:
-        response_text = call_nvidia_llm(prompt, max_tokens=2048)
-        return json.loads(clean_json_response(response_text))
-    except Exception as e:
-        return {"error": str(e)}
+# ──────────────────────────────────────────────
+# Root
+# ──────────────────────────────────────────────
 
-def compare_destinations(countries_list, criteria):
-    """Compares multiple destinations based on user-selected criteria."""
-    criteria_str = ", ".join(criteria)
-    countries_str = ", ".join(countries_list)
+# Move the old root endpoint to /api
+@app.get("/api", tags=["System"])
+def api_root():
+    return {
+        "app": "RoamWise API",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "health": "/health",
+    }
     
-    prompt = f"""Compare these travel destinations: {countries_str}
-    Compare based on these criteria: {criteria_str}
-    
-    Return a JSON object:
-    {{
-        "comparison_table": {{
-            "criteria_name": {{
-                "Country1": {{"score": 8, "details": "explanation"}},
-                "Country2": {{"score": 7, "details": "explanation"}}
-            }}
-        }},
-        "overall_winner": "Country name",
-        "winner_reason": "Why this country wins overall",
-        "best_for": {{
-            "budget_travelers": "Country name",
-            "families": "Country name",
-            "adventure_seekers": "Country name",
-            "foodies": "Country name",
-            "culture_lovers": "Country name"
-        }},
-        "summary": "Brief overall comparison summary"
-    }}
-    Score each country 1-10 for each criterion. Only output valid JSON.
-    """
-    try:
-        response_text = call_nvidia_llm(prompt, max_tokens=3000)
-        return json.loads(clean_json_response(response_text))
-    except Exception as e:
-        return {"error": str(e)}
-
-def get_essential_phrases(country):
-    """Generates essential travel phrases in the local language."""
-    prompt = f"""For travelers visiting {country}, provide essential phrases.
-    
-    Return JSON:
-    {{
-        "primary_language": "Language name",
-        "greeting_culture": "Brief note on greeting customs",
-        "categories": {{
-            "greetings": [
-                {{"english": "Hello", "local": "translation", "pronunciation": "phonetic"}}
-            ],
-            "directions": [...],
-            "dining": [...],
-            "emergencies": [...]
-        }},
-        "cultural_notes": ["Important cultural tip 1", "tip 2"],
-        "common_mistakes": ["Mistake tourists make with language"]
-    }}
-    Include 5-8 phrases per category. Only output valid JSON.
-    """
-    try:
-        response_text = call_nvidia_llm(prompt, max_tokens=2048)
-        return json.loads(clean_json_response(response_text))
-    except Exception as e:
-        return {"error": str(e)}
-
-def get_weather_activities(country, month):
-    """Recommends activities based on weather conditions for a specific month."""
-    prompt = f"""For {country} in {month}, provide weather-based activity recommendations.
-    
-    Return JSON:
-    {{
-        "weather_summary": {{
-            "temperature_range": "15-25°C",
-            "rainfall": "Low/Moderate/High",
-            "humidity": "Low/Moderate/High",
-            "general_conditions": "Warm and dry"
-        }},
-        "is_peak_season": true,
-        "tourist_crowd_level": "High/Medium/Low",
-        "recommended_activities": [
-            {{
-                "activity": "Beach hopping",
-                "why_this_month": "Perfect weather for swimming",
-                "best_locations": ["Location 1"],
-                "what_to_pack": ["Sunscreen"]
-            }}
-        ],
-        "activities_to_avoid": [
-            {{"activity": "Trekking", "reason": "Heavy monsoon rains"}}
-        ],
-        "regional_differences": [
-            {{"region": "Northern region", "weather": "Cooler temperatures", "best_activities": ["Activity 1"]}}
-        ],
-        "festivals_events": [
-            {{"name": "Festival", "date": "Date", "location": "Location", "description": "Description"}}
-        ],
-        "packing_for_weather": ["Item 1", "Item 2"]
-    }}
-    Only output valid JSON.
-    """
-    try:
-        response_text = call_nvidia_llm(prompt, max_tokens=2048)
-        return json.loads(clean_json_response(response_text))
-    except Exception as e:
-        return {"error": str(e)}
-
-# --- UI Render Functions ---
-# (Keeping UI components mostly identical, adapting minor naming from Gemini to NVIDIA AI)
-
-def render_travel_chatbot(country):
-    st.subheader("💬 Ask AI About Your Destination")
-    st.write(f"Ask me anything about traveling to **{country}**!")
-    
-    chat_container = st.container()
-    with chat_container:
-        for chat in st.session_state.chat_history:
-            with st.chat_message("user"):
-                st.write(chat["user"])
-            with st.chat_message("assistant"):
-                st.write(chat["assistant"])
-    
-    user_input = st.chat_input(f"Ask anything about {country}...")
-    
-    if user_input:
-        with st.chat_message("user"):
-            st.write(user_input)
-        
-        with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                response = get_travel_chat_response(
-                    country, 
-                    user_input, 
-                    st.session_state.chat_history
-                )
-                
-                if response.get("error"):
-                    st.error(response["error"])
-                else:
-                    st.write(response["response"])
-                    st.session_state.chat_history.append({
-                        "user": user_input,
-                        "assistant": response["response"]
-                    })
-                    st.rerun()
-    
-    if st.session_state.chat_history:
-        if st.button("🗑️ Clear Chat History", key="clear_chat"):
-            st.session_state.chat_history = []
-            st.rerun()
-
-def render_itinerary_planner(country):
-    st.subheader("📅 AI Itinerary Planner")
-    st.write(f"Create a personalized day-by-day itinerary for **{country}**")
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        num_days = st.slider("Trip Duration (days)", 1, 30, 7, key="itinerary_days")
-    with col2:
-        travel_style = st.selectbox("Travel Style", ["Adventure", "Relaxation", "Cultural", "Family", "Romantic", "Solo Backpacking"], key="itinerary_style")
-    with col3:
-        budget_level = st.selectbox("Budget Level", ["Budget", "Moderate", "Luxury"], key="itinerary_budget")
-    
-    if st.button("🗓️ Generate Itinerary", key="gen_itinerary"):
-        with st.spinner(f"Creating your {num_days}-day adventure..."):
-            itinerary = generate_detailed_itinerary(country, num_days, travel_style.lower(), budget_level.lower())
-            
-            if itinerary.get("error"):
-                st.error(f"Error: {itinerary['error']}")
-            else:
-                st.success(f"Your {num_days}-day itinerary is ready!")
-                
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Total Days", num_days)
-                with col2:
-                    total_cost = itinerary.get("total_estimated_cost_inr", "N/A")
-                    st.metric("Est. Budget", f"₹{total_cost:,}" if isinstance(total_cost, (int, float)) else total_cost)
-                with col3:
-                    st.metric("Best Time", itinerary.get("best_time_to_visit", "Any time"))
-                
-                if itinerary.get("packing_essentials"):
-                    st.info("🎒 **Packing Essentials:** " + ", ".join(itinerary["packing_essentials"]))
-                
-                st.divider()
-                
-                for day_plan in itinerary.get("itinerary", []):
-                    with st.expander(f"📍 Day {day_plan.get('day', '?')}: {day_plan.get('title', '')} - {day_plan.get('city', '')}", expanded=False):
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            st.markdown("**🌅 Morning**")
-                            morning = day_plan.get("morning", {})
-                            if isinstance(morning, dict):
-                                st.write(f"• {morning.get('activity', 'Free time')}")
-                                st.write(f"  _{morning.get('description', '')}_")
-                            
-                            st.markdown("**☀️ Afternoon**")
-                            afternoon = day_plan.get("afternoon", {})
-                            if isinstance(afternoon, dict):
-                                st.write(f"• {afternoon.get('activity', 'Free time')}")
-                                st.write(f"  _{afternoon.get('description', '')}_")
-                            
-                            st.markdown("**🌙 Evening**")
-                            evening = day_plan.get("evening", {})
-                            if isinstance(evening, dict):
-                                st.write(f"• {evening.get('activity', 'Free time')}")
-                                st.write(f"  _{evening.get('description', '')}_")
-                        
-                        with col2:
-                            st.markdown("**🍽️ Meals**")
-                            meals = day_plan.get("meals", {})
-                            if isinstance(meals, dict):
-                                st.write(f"🥐 Breakfast: {meals.get('breakfast', 'Local options')}")
-                                st.write(f"🍛 Lunch: {meals.get('lunch', 'Local options')}")
-                                st.write(f"🍽️ Dinner: {meals.get('dinner', 'Local options')}")
-                            
-                            st.markdown("**🏨 Accommodation**")
-                            st.write(day_plan.get("accommodation", "Various options available"))
-                            
-                            if day_plan.get("travel_tip"):
-                                st.info(f"💡 Tip: {day_plan['travel_tip']}")
-
-def render_budget_planner(country):
-    st.subheader("💰 AI Budget Planner")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        days = st.number_input("Trip Duration (days)", 1, 60, 7, key="budget_days")
-    with col2:
-        travelers = st.number_input("Number of Travelers", 1, 10, 2, key="budget_travelers")
-    with col3:
-        style = st.selectbox("Travel Style", ["Budget", "Mid-Range", "Luxury"], key="budget_style")
-    
-    if st.button("💵 Calculate Budget", key="calc_budget"):
-        with st.spinner("Calculating your travel budget..."):
-            budget = generate_budget_plan(country, days, style, travelers)
-            
-            if budget.get("error"):
-                st.error(f"Error: {budget['error']}")
-            else:
-                summary = budget.get("summary", {})
-                st.subheader("📊 Budget Summary")
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    per_person = summary.get('total_per_person', 0)
-                    st.metric("Per Person", f"₹{per_person:,}" if isinstance(per_person, (int, float)) else per_person)
-                with col2:
-                    total = summary.get('total_trip_cost', 0)
-                    st.metric("Total Trip", f"₹{total:,}" if isinstance(total, (int, float)) else total)
-                with col3:
-                    daily = summary.get('daily_average_per_person', 0)
-                    st.metric("Daily Average", f"₹{daily:,}" if isinstance(daily, (int, float)) else daily)
-                
-                st.divider()
-                breakdown = budget.get("breakdown", {})
-                pie_data = {"Category": [], "Amount": []}
-                for category, details in breakdown.items():
-                    if isinstance(details, dict) and "total" in details:
-                        pie_data["Category"].append(category.replace("_", " ").title())
-                        pie_data["Amount"].append(details["total"])
-                
-                if pie_data["Category"]:
-                    fig = px.pie(pie_data, values="Amount", names="Category", title="Budget Distribution")
-                    st.plotly_chart(fig, use_container_width=True)
-                
-                st.subheader("📋 Detailed Breakdown")
-                for category, details in breakdown.items():
-                    if isinstance(details, dict):
-                        total_val = details.get('total', 0)
-                        total_str = f"₹{total_val:,}" if isinstance(total_val, (int, float)) else total_val
-                        with st.expander(f"{category.replace('_', ' ').title()} - {total_str}"):
-                            for key, value in details.items():
-                                if key not in ["total", "tips"]:
-                                    if isinstance(value, dict):
-                                        st.write(f"**{key.replace('_', ' ').title()}:**")
-                                        for k, v in value.items():
-                                            st.write(f"  • {k.title()}: ₹{v}" if isinstance(v, (int, float)) else f"  • {k.title()}: {v}")
-                                    else:
-                                        st.write(f"**{key.replace('_', ' ').title()}:** {value}")
-                            if details.get("tips"):
-                                st.info(f"💡 {details['tips']}")
-
-def render_safety_advisor(country):
-    st.subheader("🛡️ Safety & Visa Information")
-    nationality = st.selectbox("Your Nationality", ["Indian", "American", "British", "Canadian", "Australian", "German", "French", "Other"], key="nationality_select")
-    
-    if st.button("🔍 Check Requirements", key="check_safety"):
-        with st.spinner("Fetching travel advisory..."):
-            advisory = get_travel_advisory(country, nationality)
-            
-            if advisory.get("error"):
-                st.error(f"Error: {advisory['error']}")
-            else:
-                rating = advisory.get("safety_rating", "Unknown")
-                score = advisory.get("safety_score", 5)
-                if isinstance(score, (int, float)):
-                    if score >= 7: st.success(f"### Safety Rating: {rating} ({score}/10) ✅")
-                    elif score >= 4: st.warning(f"### Safety Rating: {rating} ({score}/10) ⚠️")
-                    else: st.error(f"### Safety Rating: {rating} ({score}/10) 🚨")
-                else:
-                    st.info(f"### Safety Rating: {rating}")
-                
-                st.divider()
-                st.subheader("🛂 Visa Requirements")
-                visa = advisory.get("visa_requirements", {})
-                
-                col1, col2, col3 = st.columns(3)
-                with col1: st.metric("Visa Type", visa.get("visa_type", "Check embassy"))
-                with col2: st.markdown(f"<div style='font-size:14px; line-height:1.1'><b>Duration Allowed</b><br>{visa.get('duration_allowed', 'Varies')}</div>", unsafe_allow_html=True)
-                with col3: 
-                    cost = visa.get("approximate_cost_inr", "Varies")
-                    st.metric("Approx. Cost", f"₹{cost}" if isinstance(cost, (int, float)) else cost)
-                
-                if visa.get("documents_required"):
-                    st.write("**📄 Documents Required:**")
-                    for doc in visa["documents_required"]:
-                        st.write(f"  ✅ {doc}")
-                
-                st.divider()
-                if advisory.get("health_advisories"):
-                    st.subheader("🏥 Health Advisories")
-                    for health in advisory["health_advisories"]:
-                        if isinstance(health, dict):
-                            st.write(f"{'🔴 Required' if health.get('mandatory') else '🟡 Recommended'} **{health.get('type', 'Health')}**: {health.get('details', '')}")
-                        else:
-                            st.write(f"• {health}")
-
-def render_landmark_recognition(country=None):
-    st.subheader("📸 AI Landmark Recognition")
-    st.write("Upload a photo to identify landmarks and get travel information!")
-    
-    uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png", "webp"], key="landmark_upload")
-    
-    if uploaded_file:
-        col1, col2 = st.columns(2)
-        with col1:
-            st.image(uploaded_file, caption="Uploaded Image", use_container_width=True)
-        
-        with col2:
-            if st.button("🔍 Identify Landmark", key="identify_btn"):
-                with st.spinner("Analyzing image..."):
-                    result = identify_landmark(uploaded_file, country)
-                    if result.get("error"):
-                        st.error(f"Error: {result['error']}")
-                    elif result.get("identified"):
-                        st.success(f"**🏛️ {result.get('landmark_name', 'Unknown')}**")
-                        st.write(f"📍 {result.get('location', 'Unknown location')}")
-                        st.divider()
-                        st.write("**📖 About:**")
-                        st.write(result.get("description", "No description available."))
-                        
-                        visitor = result.get("visitor_info", {})
-                        if visitor:
-                            st.divider()
-                            st.write("**ℹ️ Visitor Information:**")
-                            col_a, col_b = st.columns(2)
-                            with col_a: st.metric("Best Time", visitor.get("best_time_to_visit", "Anytime"))
-                            with col_b: st.metric("Duration", visitor.get("typical_visit_duration", "1-2 hours"))
-                    else:
-                        st.warning("Could not identify a specific landmark in this image.")
-                        if result.get("description"):
-                            st.write(f"What I see: {result['description']}")
-
-def render_packing_list(country):
-    st.subheader("🎒 AI Packing List Generator")
-    col1, col2 = st.columns(2)
-    with col1: days = st.number_input("Trip Duration (days)", 1, 60, 7, key="packing_days")
-    with col2: style = st.selectbox("Trip Type", ["Leisure", "Business", "Adventure", "Beach", "Winter Sports", "Backpacking"], key="packing_style")
-    
-    travel_dates = st.date_input("Travel Start Date (optional)", value=None, key="packing_dates")
-    
-    if st.button("📦 Generate Packing List", key="gen_packing"):
-        with st.spinner("Creating your personalized packing list..."):
-            packing = generate_packing_list(country, days, style, str(travel_dates) if travel_dates else None)
-            
-            if packing.get("error"):
-                st.error(f"Error: {packing['error']}")
-            else:
-                st.info(f"🌤️ **Weather:** {packing.get('weather_summary', 'Check local forecasts')}")
-                categories = packing.get("categories", {})
-                for category, items in categories.items():
-                    with st.expander(f"📂 {category.replace('_', ' ').title()}", expanded=True):
-                        for item in items:
-                            if isinstance(item, dict):
-                                qty = item.get("quantity", 1)
-                                notes = f" - _{item.get('notes')}_" if item.get("notes") else ""
-                                st.checkbox(f"{item.get('item', 'Item')} (x{qty}){notes}", key=f"pack_{category}_{item.get('item')}")
-                            else:
-                                st.checkbox(str(item), key=f"pack_{category}_{item}")
-
-def render_destination_comparison():
-    st.subheader("🌍 Compare Destinations")
-    
-    all_countries = []
-    for continent in CONTINENTS:
-        all_countries.extend(get_countries_for_continent(continent))
-    all_countries = sorted(set(all_countries))
-    
-    selected_countries = st.multiselect("Select 2-4 countries to compare", all_countries, max_selections=4, key="compare_countries")
-    criteria = st.multiselect("Comparison Criteria", ["Cost of Living", "Safety", "Weather", "Food Scene", "Nightlife", "Cultural Attractions"], default=["Cost of Living", "Safety", "Food Scene"], key="compare_criteria")
-    
-    if len(selected_countries) >= 2 and criteria:
-        if st.button("🔍 Compare Destinations", key="compare_btn"):
-            with st.spinner("Analyzing destinations..."):
-                comparison = compare_destinations(selected_countries, criteria)
-                
-                if comparison.get("error"):
-                    st.error(f"Error: {comparison['error']}")
-                else:
-                    st.success(f"🏆 **Overall Winner: {comparison.get('overall_winner', 'N/A')}**")
-                    st.write(comparison.get('winner_reason', ''))
-                    st.divider()
-                    
-                    st.subheader("📊 Detailed Comparison")
-                    table_data = comparison.get("comparison_table", {})
-                    for criterion, country_scores in table_data.items():
-                        st.markdown(f"**{criterion}**")
-                        cols = st.columns(len(selected_countries))
-                        for idx, country in enumerate(selected_countries):
-                            with cols[idx]:
-                                data = country_scores.get(country, {})
-                                if isinstance(data, dict):
-                                    st.metric(country, f"{data.get('score', 'N/A')}/10")
-                                    st.caption(data.get("details", ""))
-                                else:
-                                    st.metric(country, f"{data}/10" if isinstance(data, (int, float)) else data)
-                        st.divider()
-    elif len(selected_countries) < 2:
-        st.info("Please select at least 2 countries to compare.")
-
-def render_language_helper(country):
-    st.subheader("🗣️ Language & Phrase Guide")
-    if st.button("📚 Load Essential Phrases", key="load_phrases"):
-        with st.spinner(f"Loading phrases for {country}..."):
-            phrases = get_essential_phrases(country)
-            if phrases.get("error"):
-                st.error(f"Error: {phrases['error']}")
-            else:
-                st.info(f"**🌐 Primary Language:** {phrases.get('primary_language', 'Unknown')}")
-                if phrases.get("greeting_culture"):
-                    st.write(f"**🤝 Greeting Culture:** {phrases['greeting_culture']}")
-                
-                st.divider()
-                categories = phrases.get("categories", {})
-                if categories:
-                    tabs = st.tabs([cat.replace("_", " ").title() for cat in categories.keys()])
-                    for tab, (category, phrase_list) in zip(tabs, categories.items()):
-                        with tab:
-                            if isinstance(phrase_list, list):
-                                for phrase in phrase_list:
-                                    if isinstance(phrase, dict):
-                                        col1, col2 = st.columns([1, 2])
-                                        with col1: st.write(f"**{phrase.get('english', '')}**")
-                                        with col2:
-                                            st.write(f"🗣️ {phrase.get('local', '')}")
-                                            if phrase.get('pronunciation'): st.caption(f"_{phrase.get('pronunciation', '')}_")
-                                        st.divider()
-                                    else:
-                                        st.write(f"• {phrase}")
-
-def render_weather_activities(country):
-    st.subheader("🌦️ Weather-Based Activities")
-    months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
-    selected_month = st.selectbox("When are you planning to visit?", months, key="weather_month")
-    
-    if st.button("🌤️ Get Recommendations", key="get_weather"):
-        with st.spinner(f"Analyzing {country} weather for {selected_month}..."):
-            weather_data = get_weather_activities(country, selected_month)
-            if weather_data.get("error"):
-                st.error(f"Error: {weather_data['error']}")
-            else:
-                weather = weather_data.get("weather_summary", {})
-                col1, col2, col3, col4 = st.columns(4)
-                with col1: st.metric("🌡️ Temperature", weather.get("temperature_range", "N/A"))
-                with col2: st.metric("🌧️ Rainfall", weather.get("rainfall", "N/A"))
-                with col3: st.metric("Peak Season", "Yes 🔥" if weather_data.get("is_peak_season") else "No")
-                with col4: st.metric("👥 Crowds", weather_data.get("tourist_crowd_level", "N/A"))
-                
-                st.divider()
-                if weather_data.get("recommended_activities"):
-                    st.subheader("✅ Recommended Activities")
-                    for activity in weather_data["recommended_activities"]:
-                        if isinstance(activity, dict):
-                            with st.expander(f"🎯 {activity.get('activity', 'Activity')}", expanded=True):
-                                st.write(f"**Why this month:** {activity.get('why_this_month', '')}")
-                        else:
-                            st.write(f"• {activity}")
-
-# --- Main Streamlit App ---
-
-st.set_page_config(page_title="RoamWise - Travel Guide", layout="wide")
-
-st.title("🌍 RoamWise - Your Travel Companion")
-st.markdown("Discover amazing destinations and plan your next adventure!")
-
-page = st.sidebar.radio("📍 Navigation", ["Travel Planner", "🏥 Health Check"], index=0)
-
-if page == "🏥 Health Check":
-    st.subheader("🏥 System Health Check")
-    col1, col2 = st.columns([3, 1])
-    with col1: st.write("Checking system health...")
-    with col2:
-        if st.button("🔄 Refresh", key="refresh_health"):
-            st.cache_data.clear()
-            st.rerun()
-    
-    st.divider()
-    health_results = get_all_health_checks()
-    all_working = all(check["working"] for check in [
-        health_results["nvidia_api"], health_results["exchange_api"], health_results["rest_countries_api"], health_results["nvidia_client"]
-    ])
-    
-    if all_working: st.success("### ✅ All Systems Operational")
-    else: st.warning("### ⚠️ Some Components May Have Issues")
-    
-    st.caption(f"Last checked: {health_results['timestamp']}")
-    st.divider()
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.write("**🤖 NVIDIA API**")
-        nv_check = health_results["nvidia_api"]
-        st.success(nv_check["status"]) if "✅" in nv_check["status"] else st.error(nv_check["status"])
-        st.caption(nv_check["details"])
-        
-        st.write("**🔄 NVIDIA Client**")
-        client_check = health_results["nvidia_client"]
-        st.success(client_check["status"]) if "✅" in client_check["status"] else st.error(client_check["status"])
-        st.caption(client_check["details"])
-    
-    with col2:
-        st.write("**💱 Exchange Rate API**")
-        ex_check = health_results["exchange_api"]
-        st.success(ex_check["status"]) if "✅" in ex_check["status"] else st.error(ex_check["status"])
-        st.caption(ex_check["details"])
-        
-        st.write("**🌍 Countries Data API**")
-        c_check = health_results["rest_countries_api"]
-        st.success(c_check["status"]) if "✅" in c_check["status"] else st.error(c_check["status"])
-        st.caption(c_check["details"])
-
-else:
-    st.sidebar.header("🗺️ Select Your Destination")
-    selected_continent = st.sidebar.selectbox("Choose a Continent:", CONTINENTS)
-    countries = get_countries_for_continent(selected_continent)
-
-    if countries:
-        selected_country = st.sidebar.selectbox("Choose a Country:", countries)
-        
-        if "last_country" not in st.session_state:
-            st.session_state.last_country = selected_country
-        elif st.session_state.last_country != selected_country:
-            st.session_state.chat_history = []
-            st.session_state.last_country = selected_country
-        
-        st.subheader(f"✨ Exploring {selected_country}")
-        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-            "🗺️ Travel Plan", "📅 Itinerary", "💬 AI Chat", "💰 Budget", "🛡️ Safety", "📸 Landmark ID"
-        ])
-        
-        with tab1:
-            st.write("Get a comprehensive travel guide for your destination")
-            if st.button("📋 Get Travel Plan", key="fetch_details"):
-                with st.spinner(f"Generating travel plan for {selected_country}..."):
-                    country_info = get_country_info(selected_country)
-                    if not country_info.get("error"):
-                        st.session_state.country_info_data = country_info
-                        st.session_state.conversion_info_data = get_currency_conversion_to_inr(country_info["currency_code"])
-                        st.session_state.travel_plan_data = generate_travel_plan(selected_country)
-            
-            travel_plan = st.session_state.get("travel_plan_data")
-            country_info = st.session_state.get("country_info_data", {})
-            conversion_info = st.session_state.get("conversion_info_data", {})
-            
-            if travel_plan:
-                st.divider()
-                col_info1, col_info2, col_info3 = st.columns(3)
-                with col_info1: st.metric("🏛️ Capital", country_info.get("capital", "N/A"))
-                with col_info2: st.metric("💱 Currency", f"{country_info.get('currency_code', 'N/A')}")
-                with col_info3:
-                    if conversion_info.get("rate"): st.metric("📈 Exchange Rate", f"1 {country_info.get('currency_code', '')} = ₹{conversion_info['rate']:.2f}")
-                    else: st.warning("Conversion rate unavailable")
-                
-                st.divider()
-                if isinstance(travel_plan, dict) and not travel_plan.get("error"):
-                    if "cities" in travel_plan:
-                        st.subheader("🏙️ Must-Visit Cities")
-                        for city in travel_plan["cities"]:
-                            with st.expander(f"📍 {city.get('name', 'Unknown')}"):
-                                st.write(city.get("reason", ""))
-                    if "foods" in travel_plan:
-                        st.subheader("🍽️ Must-Try Foods")
-                        for food in travel_plan["foods"]:
-                            st.write(f"**{food.get('name', 'Food')}** - {food.get('description', '')}")
-                else:
-                    st.error("Travel plan data incomplete.")
-            else:
-                st.info("No travel plan data available. Click 'Get Travel Plan' to generate.")
-        
-        with tab2: render_itinerary_planner(selected_country)
-        with tab3: render_travel_chatbot(selected_country)
-        with tab4: render_budget_planner(selected_country)
-        with tab5: render_safety_advisor(selected_country)
-        with tab6: render_landmark_recognition(selected_country)
-        
-        st.sidebar.divider()
-        st.sidebar.subheader("🛠️ More Tools")
-        tool_selection = st.sidebar.radio("Select a tool:", ["None", "🎒 Packing List", "🌍 Compare Destinations", "🗣️ Language Helper", "🌦️ Weather Activities"], key="tool_selection")
-        
-        if tool_selection != "None":
-            st.divider()
-            if tool_selection == "🎒 Packing List": render_packing_list(selected_country)
-            elif tool_selection == "🌍 Compare Destinations": render_destination_comparison()
-            elif tool_selection == "🗣️ Language Helper": render_language_helper(selected_country)
-            elif tool_selection == "🌦️ Weather Activities": render_weather_activities(selected_country)
-
-    else:
-        st.warning(f"No countries found for {selected_continent}")
-
-st.sidebar.divider()
-st.sidebar.info("**🌍 RoamWise**\n_Your AI-powered travel companion_")
-st.sidebar.markdown(f"📅 {datetime.now().strftime('%B %d, %Y')}")
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="127.0.0.1", port=7860, reload=True)

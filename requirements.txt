@@ -1,7 +1,12 @@
-streamlit
 requests
 python-dotenv
 openai
 Pillow
 plotly
-Flask
+
+# API Server
+fastapi
+uvicorn[standard]
+python-multipart
+
+pydantic
