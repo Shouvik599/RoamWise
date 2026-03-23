@@ -9,29 +9,34 @@ pinned: false
 ---
 # 🌍 RoamWise - AI-Powered Travel Companion
 
-<p align=\"center\">
-  <img src=\"https://img.shields.io/badge/FastAPI-1.0.0-brightgreen?style=flat&logo=fastapi\" alt=\"FastAPI\"/>
-  <img src=\"https://img.shields.io/badge/NVIDIA-AI-blue?style=flat&logo=nvidia\" alt=\"NVIDIA AI\"/>
-  <img src=\"https://img.shields.io/badge/Python-3.10+-blue.svg\" alt=\"Python\"/>
-  <img src=\"https://img.shields.io/badge/Docker-ready-blue.svg\" alt=\"Docker\"/>
-  <img src=\"https://img.shields.io/badge/License-MIT-yellow.svg\" alt=\"License\"/>
+<p align="center">
+  <img src="https://images.unsplash.com/photo-1488646953014-85cb44e25828?q=80&w=1000&auto=format&fit=crop" alt="AI Travel Assistant Banner" width="100%" />
 </p>
 
-<p align=\"center\">
-  <strong>Your ultimate AI travel assistant with <em>15+ smart features</em>: personalized itineraries, budgets, safety info, landmark recognition, chat, and more!</strong>
+<p align="center">
+  <img src="https://img.shields.io/badge/FastAPI-1.0.0-brightgreen?style=flat&logo=fastapi" alt="FastAPI"/>
+  <img src="https://img.shields.io/badge/NVIDIA-AI-blue?style=flat&logo=nvidia" alt="NVIDIA AI"/>
+  <img src="https://img.shields.io/badge/Python-3.10+-blue.svg" alt="Python"/>
+  <img src="https://img.shields.io/badge/Docker-ready-blue.svg" alt="Docker"/>
+  <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License"/>
 </p>
 
-<p align=\"center\">
-  <a href=\"#features\">✨ Features</a> •
-  <a href=\"#quickstart\">🚀 Quick Start</a> •
-  <a href=\"#setup\">⚙️ Setup</a> •
-  <a href=\"#api\">🌐 API</a> •
-  <a href=\"#demo\">🎬 Demo</a> •
-  <a href=\"#deployment\">🚀 Deploy</a>
+<h2 align="center">🌍 AI Travel Companion</h2>
+
+<p align="center">
+  <strong>Your ultimate AI travel assistant with 15+ smart features: personalized itineraries, budgets, safety info, landmark recognition, chat, and more!</strong>
+</p>
+
+<p align="center">
+  <a href="#features">✨ Features</a> &nbsp;•&nbsp;
+  <a href="#quickstart">🚀 Quick Start</a> &nbsp;•&nbsp;
+  <a href="#setup">⚙️ Setup</a> &nbsp;•&nbsp;
+  <a href="#api">🌐 API Reference</a> &nbsp;•&nbsp;
+  <a href="#demo">🎬 Demo</a> &nbsp;•&nbsp;
+  <a href="#deployment">🚀 Deployment</a>
 </p>
 
 ---
-
 ## ✨ Features
 
 | Feature | Description | AI-Powered |
