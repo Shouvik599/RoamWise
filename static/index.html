@@ -11,7 +11,6 @@
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
-            /* Default (International) theme */
             --bg-primary: #0f1117;
             --bg-secondary: #1a1c25;
             --bg-card: #21232d;
@@ -1256,11 +1255,8 @@
             title.textContent = '🇮🇳 RoamWise';
             subtitle.textContent = 'Explore Incredible India';
 
-            // Show india safety nav, hide world safety nav
             document.querySelector('.india-safety-nav').style.display = 'flex';
-            // Hide world-only items via CSS class
 
-            // Populate India compare select
             populateIndiaCompare();
             document.getElementById('compare-header').textContent = '⚖️ Compare Indian Destinations';
             document.getElementById('compare-desc').textContent = 'Compare 2–4 Indian states/cities side by side';
@@ -1275,7 +1271,6 @@
 
             document.querySelector('.india-safety-nav').style.display = 'none';
 
-            // Restore compare select from countries
             const continentSel = document.getElementById('continent-select');
             if (continentSel.value) loadCountries();
             document.getElementById('compare-header').textContent = '⚖️ Compare Destinations';
@@ -1283,11 +1278,9 @@
             document.getElementById('compare-label').textContent = 'Select Countries (2–4)';
         }
 
-        // Clear results and switch to travel plan
         document.querySelectorAll('.result-container').forEach(el => el.innerHTML = '');
         document.getElementById('chat-messages').innerHTML = '';
 
-        // If current section is safety and we switched modes, go to travel plan
         const activeSection = document.querySelector('.section.active');
         if (activeSection) {
             const id = activeSection.id.replace('section-', '');
@@ -1301,7 +1294,6 @@
     function populateIndiaCompare() {
         const sel = document.getElementById('compare-countries');
         sel.innerHTML = '';
-        // Add all states as options
         const states = [
             "Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh","Goa","Gujarat",
             "Haryana","Himachal Pradesh","Jharkhand","Karnataka","Kerala","Madhya Pradesh",
@@ -1340,6 +1332,22 @@
     function getDestination() {
         if (currentMode === 'india') {
             return getState();
+        }
+        return getCountry();
+    }
+
+    /** Returns a user-friendly display name for the current India destination */
+    function getIndiaDisplayName() {
+        const state = getState();
+        const city = getCity();
+        if (city && state) return `${city}, ${state}`;
+        return state || '';
+    }
+
+    /** Returns the best display name for the current destination regardless of mode */
+    function getDisplayDestination() {
+        if (currentMode === 'india') {
+            return getIndiaDisplayName();
         }
         return getCountry();
     }
@@ -1495,7 +1503,6 @@
         document.getElementById('current-date').textContent =
             '📅 ' + new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-        // Load continents
         try {
             const data = await apiGet('/continents');
             const sel = document.getElementById('continent-select');
@@ -1508,7 +1515,6 @@
             console.error('Failed to load continents:', e);
         }
 
-        // Load India regions
         try {
             const data = await apiGet('/india/regions');
             const sel = document.getElementById('region-select');
@@ -1613,8 +1619,9 @@
         const dest = requireDestination();
         if (!dest) return;
 
+        const displayName = getDisplayDestination();
         setButtonLoading('btn-travel-plan', true);
-        showLoading('travel-plan-result', `Generating travel plan for ${dest}…`);
+        showLoading('travel-plan-result', `Generating travel plan for ${displayName}…`);
 
         try {
             if (currentMode === 'india') {
@@ -1705,8 +1712,8 @@
 
         let html = '';
 
-        html += `
-            <div class="metrics-grid">
+        // Build metrics – NO currency card for India domestic
+        html += `<div class="metrics-grid">
                 <div class="metric-card">
                     <div class="label">🏔️ State</div>
                     <div class="value" style="font-size:1rem">${escapeHtml(info.state || 'N/A')}</div>
@@ -1714,10 +1721,6 @@
                 <div class="metric-card">
                     <div class="label">🗺️ Region</div>
                     <div class="value" style="font-size:1rem">${escapeHtml(info.region || 'N/A')}</div>
-                </div>
-                <div class="metric-card">
-                    <div class="label">💰 Currency</div>
-                    <div class="value" style="font-size:1rem">₹ INR</div>
                 </div>
             </div>`;
 
@@ -1801,8 +1804,9 @@
         const dest = requireDestination();
         if (!dest) return;
 
+        const displayName = getDisplayDestination();
         setButtonLoading('btn-itinerary', true);
-        showLoading('itinerary-result', `Creating your itinerary for ${dest}…`);
+        showLoading('itinerary-result', `Creating your itinerary for ${displayName}…`);
 
         try {
             let result;
@@ -1960,8 +1964,9 @@
         const dest = requireDestination();
         if (!dest) return;
 
+        const displayName = getDisplayDestination();
         setButtonLoading('btn-budget', true);
-        showLoading('budget-result', 'Calculating your budget…');
+        showLoading('budget-result', `Calculating budget for ${displayName}…`);
 
         try {
             let result;
@@ -2081,7 +2086,7 @@
         if (!country) { showAlert('Please select a country first.', 'warning'); return; }
 
         setButtonLoading('btn-advisory', true);
-        showLoading('safety-result', 'Fetching travel advisory…');
+        showLoading('safety-result', `Fetching travel advisory for ${country}…`);
 
         try {
             const result = await apiPost('/travel/advisory', {
@@ -2165,8 +2170,9 @@
         const state = getState();
         if (!state) { showAlert('Please select a state first.', 'warning'); return; }
 
+        const displayName = getIndiaDisplayName();
         setButtonLoading('btn-india-advisory', true);
-        showLoading('india-safety-result', 'Fetching safety info…');
+        showLoading('india-safety-result', `Fetching safety info for ${displayName}…`);
 
         try {
             const result = await apiPost('/india/travel/advisory', {
@@ -2292,7 +2298,7 @@
 
         const formData = new FormData();
         formData.append('image', fileInput.files[0]);
-        const hint = currentMode === 'india' ? (getState() || 'India') : getCountry();
+        const hint = currentMode === 'india' ? (getCity() || getState() || 'India') : getCountry();
         if (hint) formData.append('country_hint', hint);
 
         try {
@@ -2353,8 +2359,9 @@
         const dest = requireDestination();
         if (!dest) return;
 
+        const displayName = getDisplayDestination();
         setButtonLoading('btn-packing', true);
-        showLoading('packing-result', 'Creating your packing list…');
+        showLoading('packing-result', `Creating packing list for ${displayName}…`);
 
         const dateVal = document.getElementById('packing-date').value;
         try {
@@ -2508,8 +2515,9 @@
         const dest = requireDestination();
         if (!dest) return;
 
+        const displayName = getDisplayDestination();
         setButtonLoading('btn-phrases', true);
-        showLoading('phrases-result', `Loading phrases for ${dest}…`);
+        showLoading('phrases-result', `Loading phrases for ${displayName}…`);
 
         try {
             let result;
@@ -2577,9 +2585,10 @@
         const dest = requireDestination();
         if (!dest) return;
 
+        const displayName = getDisplayDestination();
         setButtonLoading('btn-weather', true);
         const month = document.getElementById('weather-month').value;
-        showLoading('weather-result', `Analyzing ${dest} weather for ${month}…`);
+        showLoading('weather-result', `Analyzing ${displayName} weather for ${month}…`);
 
         try {
             let result;
