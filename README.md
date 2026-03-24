@@ -67,7 +67,7 @@ cp .env.example .env
 # Edit .env with your NVIDIA_API_KEY
 
 # 3. Run → Open http://localhost:7860
-uvicorn main:app --reload
+uvicorn app:app --reload
 ```
 
 **That's it!** SPA loads automatically. Select country → explore 15+ AI tools.
