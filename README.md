@@ -53,6 +53,35 @@ pinned: false
 
 **Single-Page App (SPA)** - No build step needed. Works offline for UI.
 
+## 🇮🇳 Indian Travel Features
+
+RoamWise delivers specialized AI support for India trips:
+
+| Feature | Examples | AI-Powered |
+|---------|----------|------------|
+| **🏛️ Iconic Landmarks** | Taj Mahal, Golden Temple, Kerala backwaters houseboats, Hampi ruins | ✅ Vision AI |
+| **🎉 Cultural Itineraries** | Diwali in Varanasi, Holi in Mathura, Rajasthan forts trail, Onam in Kerala | ✅ Personalized |
+| **🍛 Street Food Guide** | Safe chaat spots, masala dosa variations, thali breakdowns, spice safety | ✅ Chatbot |
+| **🚂 Travel Logistics** | IRCTC train tips, monsoon road prep, auto bargaining, VISA/ATMs | ✅ Practical |
+| **📸 Photo Analysis** | Upload Taj photo → best time/crowd/cost; Qutub Minar → history facts | ✅ Landmark ID |
+
+**India-Ready Endpoints:**
+```bash
+curl http://localhost:7860/travel/full/India
+curl -X POST http://localhost:7860/travel/chat -d '{"country":"India","message":"Monsoon Kerala itinerary?"}'
+curl -X POST http://localhost:7860/landmark/identify -F "image=@taj.jpg"  # → Taj Mahal info + tips
+```
+
+**Pro Tips from AI:**
+- Bargain 30-50% on markets
+- Carry cash + UPI
+- Monsoon: South India beaches
+- Carry mosquito repellent + antidiarrheal
+
+---
+
+
+
 ---
 
 ## 🚀 Quick Start
@@ -67,7 +96,7 @@ cp .env.example .env
 # Edit .env with your NVIDIA_API_KEY
 
 # 3. Run → Open http://localhost:7860
-uvicorn main:app --reload
+uvicorn app:app --reload
 ```
 
 **That's it!** SPA loads automatically. Select country → explore 15+ AI tools.

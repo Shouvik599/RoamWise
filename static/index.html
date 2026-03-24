@@ -44,6 +44,97 @@
             --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
         }
 
+        /* ── Indian Village Theme ── */
+        body.india-mode {
+            --bg-primary: #1a1209;
+            --bg-secondary: #2b1e0f;
+            --bg-card: #352716;
+            --bg-card-hover: #3e2f1c;
+            --bg-input: #3a2a15;
+            --bg-sidebar: #1e150b;
+            --text-primary: #f5e6c8;
+            --text-secondary: #c4a882;
+            --text-muted: #8a7256;
+            --accent: #d4820f;
+            --accent-hover: #b86e0a;
+            --accent-light: rgba(212, 130, 15, 0.18);
+            --success: #5db85d;
+            --success-bg: rgba(93, 184, 93, 0.12);
+            --warning: #e8a735;
+            --warning-bg: rgba(232, 167, 53, 0.12);
+            --danger: #c94c3b;
+            --danger-bg: rgba(201, 76, 59, 0.12);
+            --info: #c08a3e;
+            --info-bg: rgba(192, 138, 62, 0.12);
+            --border: #4a3620;
+            --border-light: #5a4428;
+        }
+
+        body.india-mode .sidebar-header h1 {
+            background: linear-gradient(135deg, #ff9933, #d4820f, #138808);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        body.india-mode .nav-item.active {
+            background: linear-gradient(135deg, #d4820f, #b86e0a);
+            box-shadow: 0 2px 12px rgba(212, 130, 15, 0.3);
+        }
+
+        body.india-mode .btn-primary {
+            background: linear-gradient(135deg, #d4820f, #b86e0a);
+            box-shadow: 0 2px 12px rgba(212, 130, 15, 0.25);
+        }
+        body.india-mode .btn-primary:hover {
+            background: linear-gradient(135deg, #b86e0a, #9a5c08);
+        }
+
+        body.india-mode .tag {
+            background: rgba(212, 130, 15, 0.18);
+            color: #d4820f;
+        }
+
+        body.india-mode .chip.selected {
+            background: #d4820f;
+            border-color: #d4820f;
+        }
+
+        body.india-mode .tab-btn.active {
+            color: #d4820f;
+            border-bottom-color: #d4820f;
+        }
+
+        body.india-mode .score-bar-fill {
+            background: #d4820f !important;
+        }
+
+        body.india-mode .chat-bubble.user {
+            background: linear-gradient(135deg, #d4820f, #b86e0a);
+        }
+
+        body.india-mode .phrase-card .local {
+            color: #d4820f;
+        }
+
+        body.india-mode .upload-zone:hover,
+        body.india-mode .upload-zone.dragover {
+            border-color: #d4820f;
+            background: rgba(212, 130, 15, 0.1);
+        }
+
+        body.india-mode input:focus,
+        body.india-mode select:focus,
+        body.india-mode textarea:focus {
+            border-color: #d4820f;
+            box-shadow: 0 0 0 3px rgba(212, 130, 15, 0.18);
+        }
+
+        body.india-mode .spinner-accent {
+            border-top-color: #d4820f;
+            border-color: rgba(212, 130, 15, 0.18);
+        }
+
         html { font-size: 15px; scroll-behavior: smooth; }
         body {
             font-family: var(--font);
@@ -51,6 +142,7 @@
             color: var(--text-primary);
             line-height: 1.6;
             min-height: 100vh;
+            transition: background 0.4s ease, color 0.4s ease;
         }
 
         /* ── Layout ── */
@@ -65,7 +157,7 @@
             top: 0; left: 0; bottom: 0;
             overflow-y: auto;
             z-index: 100;
-            transition: transform 0.3s ease;
+            transition: transform 0.3s ease, background 0.4s ease;
             display: flex;
             flex-direction: column;
         }
@@ -80,6 +172,7 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            transition: all 0.4s ease;
         }
         .sidebar-header p {
             font-size: 0.78rem;
@@ -122,6 +215,10 @@
         }
         .nav-item .icon { font-size: 1.15rem; width: 24px; text-align: center; }
 
+        /* Nav items that should be hidden in india mode */
+        .nav-item.world-only { display: flex; }
+        body.india-mode .nav-item.world-only { display: none; }
+
         .sidebar-footer {
             margin-top: auto;
             padding: 16px 20px;
@@ -130,6 +227,56 @@
         .sidebar-footer .date {
             font-size: 0.75rem;
             color: var(--text-muted);
+        }
+
+        /* ── Mode Toggle (Sliding Tab) ── */
+        .mode-toggle-container {
+            padding: 12px 12px 4px;
+        }
+        .mode-toggle {
+            display: flex;
+            background: var(--bg-input);
+            border-radius: 25px;
+            padding: 3px;
+            position: relative;
+            border: 1px solid var(--border);
+        }
+        .mode-toggle-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-family: var(--font);
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 22px;
+            transition: var(--transition);
+            z-index: 2;
+            position: relative;
+            text-align: center;
+        }
+        .mode-toggle-btn.active {
+            color: #fff;
+        }
+        .mode-toggle-slider {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: calc(50% - 3px);
+            height: calc(100% - 6px);
+            border-radius: 22px;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1;
+        }
+        .mode-toggle-slider.world {
+            background: linear-gradient(135deg, #6c63ff, #5a52e0);
+            transform: translateX(0);
+        }
+        .mode-toggle-slider.india {
+            background: linear-gradient(135deg, #ff9933, #d4820f);
+            transform: translateX(100%);
         }
 
         /* ── Destination Selector (in sidebar) ── */
@@ -156,12 +303,19 @@
         }
         .dest-selector select:focus { border-color: var(--accent); }
 
+        /* World / India selector visibility */
+        #world-selector { display: block; }
+        #india-selector { display: none; }
+        body.india-mode #world-selector { display: none; }
+        body.india-mode #india-selector { display: block; }
+
         /* ── Main Content ── */
         .main-content {
             margin-left: var(--sidebar-width);
             flex: 1;
             padding: 32px 40px;
             min-height: 100vh;
+            transition: background 0.4s ease;
         }
 
         /* ── Mobile Toggle ── */
@@ -213,6 +367,7 @@
             padding: 24px;
             margin-bottom: 20px;
             box-shadow: var(--shadow-sm);
+            transition: background 0.4s ease, border-color 0.4s ease;
         }
         .card-header {
             display: flex;
@@ -238,6 +393,7 @@
             border-radius: var(--radius);
             padding: 20px;
             text-align: center;
+            transition: background 0.4s ease, border-color 0.4s ease;
         }
         .metric-card .label {
             font-size: 0.78rem;
@@ -625,6 +781,14 @@
             margin-top: 2px;
         }
 
+        /* ── Indian village decorative border for cards in india mode ── */
+        body.india-mode .card {
+            border-left: 3px solid #d4820f;
+        }
+        body.india-mode .metric-card {
+            border-top: 2px solid rgba(212, 130, 15, 0.4);
+        }
+
         /* ── Responsive ── */
         @media (max-width: 768px) {
             .sidebar { transform: translateX(-100%); }
@@ -654,46 +818,85 @@
     <!-- ═══════════ SIDEBAR ═══════════ -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <h1>🌍 RoamWise</h1>
-            <p>AI-Powered Travel Companion</p>
+            <h1 id="app-title">🌍 RoamWise</h1>
+            <p id="app-subtitle">AI-Powered Travel Companion</p>
         </div>
 
-        <!-- Destination Selector -->
-        <div class="sidebar-section">
-            <div class="sidebar-section-title">🗺️ Destination</div>
+        <!-- Mode Toggle -->
+        <div class="mode-toggle-container">
+            <div class="mode-toggle">
+                <div class="mode-toggle-slider world" id="mode-slider"></div>
+                <button class="mode-toggle-btn active" id="btn-mode-world" onclick="switchMode('world')">
+                    🌍 World
+                </button>
+                <button class="mode-toggle-btn" id="btn-mode-india" onclick="switchMode('india')">
+                    🇮🇳 India
+                </button>
+            </div>
         </div>
-        <div class="dest-selector">
-            <label for="continent-select">Continent</label>
-            <select id="continent-select" onchange="loadCountries()">
-                <option value="">Select continent…</option>
-            </select>
-            <label for="country-select">Country</label>
-            <select id="country-select" onchange="onCountryChange()">
-                <option value="">Select country…</option>
-            </select>
+
+        <!-- World Destination Selector -->
+        <div id="world-selector">
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">🗺️ Destination</div>
+            </div>
+            <div class="dest-selector">
+                <label for="continent-select">Continent</label>
+                <select id="continent-select" onchange="loadCountries()">
+                    <option value="">Select continent…</option>
+                </select>
+                <label for="country-select">Country</label>
+                <select id="country-select" onchange="onCountryChange()">
+                    <option value="">Select country…</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- India Destination Selector -->
+        <div id="india-selector">
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">🏔️ Destination</div>
+            </div>
+            <div class="dest-selector">
+                <label for="region-select">Region</label>
+                <select id="region-select" onchange="loadIndiaStates()">
+                    <option value="">Select region…</option>
+                </select>
+                <label for="state-select">State / UT</label>
+                <select id="state-select" onchange="onStateChange()">
+                    <option value="">Select state…</option>
+                </select>
+                <label for="city-select">City (optional)</label>
+                <select id="city-select" onchange="onCityChange()">
+                    <option value="">All cities / state-wide</option>
+                </select>
+            </div>
         </div>
 
         <!-- Navigation -->
         <div class="sidebar-section">
             <div class="sidebar-section-title">📍 Navigation</div>
         </div>
-        <nav>
-            <button class="nav-item active" onclick="showSection('travel-plan', this)">
+        <nav id="main-nav">
+            <button class="nav-item active" data-section="travel-plan" onclick="showSection('travel-plan', this)">
                 <span class="icon">🗺️</span> Travel Plan
             </button>
-            <button class="nav-item" onclick="showSection('itinerary', this)">
+            <button class="nav-item" data-section="itinerary" onclick="showSection('itinerary', this)">
                 <span class="icon">📅</span> Itinerary
             </button>
-            <button class="nav-item" onclick="showSection('chat', this)">
+            <button class="nav-item" data-section="chat" onclick="showSection('chat', this)">
                 <span class="icon">💬</span> AI Chat
             </button>
-            <button class="nav-item" onclick="showSection('budget', this)">
+            <button class="nav-item" data-section="budget" onclick="showSection('budget', this)">
                 <span class="icon">💰</span> Budget
             </button>
-            <button class="nav-item" onclick="showSection('safety', this)">
+            <button class="nav-item world-only" data-section="safety" onclick="showSection('safety', this)">
                 <span class="icon">🛡️</span> Safety & Visa
             </button>
-            <button class="nav-item" onclick="showSection('landmark', this)">
+            <button class="nav-item india-safety-nav" data-section="india-safety" onclick="showSection('india-safety', this)" style="display:none">
+                <span class="icon">🛡️</span> Safety Info
+            </button>
+            <button class="nav-item" data-section="landmark" onclick="showSection('landmark', this)">
                 <span class="icon">📸</span> Landmark ID
             </button>
         </nav>
@@ -701,20 +904,20 @@
         <div class="sidebar-section">
             <div class="sidebar-section-title">🛠️ More Tools</div>
         </div>
-        <nav>
-            <button class="nav-item" onclick="showSection('packing', this)">
+        <nav id="tools-nav">
+            <button class="nav-item" data-section="packing" onclick="showSection('packing', this)">
                 <span class="icon">🎒</span> Packing List
             </button>
-            <button class="nav-item" onclick="showSection('compare', this)">
+            <button class="nav-item" data-section="compare" onclick="showSection('compare', this)">
                 <span class="icon">⚖️</span> Compare
             </button>
-            <button class="nav-item" onclick="showSection('phrases', this)">
+            <button class="nav-item" data-section="phrases" onclick="showSection('phrases', this)">
                 <span class="icon">🗣️</span> Phrases
             </button>
-            <button class="nav-item" onclick="showSection('weather', this)">
+            <button class="nav-item" data-section="weather" onclick="showSection('weather', this)">
                 <span class="icon">🌦️</span> Weather
             </button>
-            <button class="nav-item" onclick="showSection('health', this)">
+            <button class="nav-item" data-section="health" onclick="showSection('health', this)">
                 <span class="icon">🏥</span> Health Check
             </button>
         </nav>
@@ -730,8 +933,8 @@
         <!-- ── Travel Plan ── -->
         <div class="section active" id="section-travel-plan">
             <div class="page-header">
-                <h2>🗺️ Travel Plan</h2>
-                <p>Get a comprehensive AI-generated travel guide for your destination</p>
+                <h2 id="tp-header">🗺️ Travel Plan</h2>
+                <p id="tp-desc">Get a comprehensive AI-generated travel guide for your destination</p>
             </div>
             <div class="card">
                 <button class="btn btn-primary" onclick="fetchTravelPlan()" id="btn-travel-plan">
@@ -762,6 +965,7 @@
                             <option value="family">Family</option>
                             <option value="romantic">Romantic</option>
                             <option value="solo backpacking">Solo Backpacking</option>
+                            <option value="pilgrimage">Pilgrimage</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -829,7 +1033,7 @@
             <div id="budget-result" class="result-container"></div>
         </div>
 
-        <!-- ── Safety ── -->
+        <!-- ── Safety (International) ── -->
         <div class="section" id="section-safety">
             <div class="page-header">
                 <h2>🛡️ Safety & Visa Information</h2>
@@ -854,6 +1058,23 @@
                 </button>
             </div>
             <div id="safety-result" class="result-container"></div>
+        </div>
+
+        <!-- ── Safety (India Domestic) ── -->
+        <div class="section" id="section-india-safety">
+            <div class="page-header">
+                <h2>🛡️ Safety & Travel Info</h2>
+                <p>Safety advisories, emergency numbers, and local tips for domestic travel</p>
+            </div>
+            <div class="card">
+                <div class="alert alert-info">
+                    ℹ️ <strong>Domestic Travel:</strong> No visa or passport required. Carry a valid ID (Aadhaar/Driving License).
+                </div>
+                <button class="btn btn-primary" onclick="fetchIndiaAdvisory()" id="btn-india-advisory">
+                    🔍 Check Safety Info
+                </button>
+            </div>
+            <div id="india-safety-result" class="result-container"></div>
         </div>
 
         <!-- ── Landmark ── -->
@@ -903,6 +1124,7 @@
                             <option value="beach">Beach</option>
                             <option value="winter sports">Winter Sports</option>
                             <option value="backpacking">Backpacking</option>
+                            <option value="pilgrimage">Pilgrimage</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -920,12 +1142,12 @@
         <!-- ── Compare ── -->
         <div class="section" id="section-compare">
             <div class="page-header">
-                <h2>⚖️ Compare Destinations</h2>
-                <p>Compare 2–4 countries side by side</p>
+                <h2 id="compare-header">⚖️ Compare Destinations</h2>
+                <p id="compare-desc">Compare 2–4 destinations side by side</p>
             </div>
             <div class="card">
                 <div class="form-group">
-                    <label>Select Countries (2–4)</label>
+                    <label id="compare-label">Select Countries (2–4)</label>
                     <select id="compare-countries" multiple style="min-height:120px">
                     </select>
                     <p style="font-size:0.75rem; color:var(--text-muted); margin-top:4px">Hold Ctrl/Cmd to select multiple</p>
@@ -939,6 +1161,8 @@
                         <span class="chip selected" data-val="Food Scene" onclick="toggleChip(this)">Food Scene</span>
                         <span class="chip" data-val="Nightlife" onclick="toggleChip(this)">Nightlife</span>
                         <span class="chip" data-val="Cultural Attractions" onclick="toggleChip(this)">Cultural Attractions</span>
+                        <span class="chip" data-val="Adventure Activities" onclick="toggleChip(this)">Adventure Activities</span>
+                        <span class="chip" data-val="Accessibility" onclick="toggleChip(this)">Accessibility</span>
                     </div>
                 </div>
                 <button class="btn btn-primary" onclick="fetchComparison()" id="btn-compare">
@@ -1007,10 +1231,84 @@
     // Configuration
     // ══════════════════════════════════════════
     const API_BASE = window.location.origin;
-    // If your FastAPI runs on a different port during development, use e.g.:
-    // const API_BASE = 'http://localhost:8000';
-
     const chatSessionId = 'session_' + Math.random().toString(36).substr(2, 9);
+
+    let currentMode = 'world'; // 'world' or 'india'
+
+    // ══════════════════════════════════════════
+    // Mode Switching
+    // ══════════════════════════════════════════
+
+    function switchMode(mode) {
+        currentMode = mode;
+        const slider = document.getElementById('mode-slider');
+        const btnWorld = document.getElementById('btn-mode-world');
+        const btnIndia = document.getElementById('btn-mode-india');
+        const title = document.getElementById('app-title');
+        const subtitle = document.getElementById('app-subtitle');
+
+        if (mode === 'india') {
+            document.body.classList.add('india-mode');
+            slider.className = 'mode-toggle-slider india';
+            btnWorld.classList.remove('active');
+            btnIndia.classList.add('active');
+            title.textContent = '🇮🇳 RoamWise';
+            subtitle.textContent = 'Explore Incredible India';
+
+            document.querySelector('.india-safety-nav').style.display = 'flex';
+
+            populateIndiaCompare();
+            document.getElementById('compare-header').textContent = '⚖️ Compare Indian Destinations';
+            document.getElementById('compare-desc').textContent = 'Compare 2–4 Indian states/cities side by side';
+            document.getElementById('compare-label').textContent = 'Select States/Cities (2–4)';
+        } else {
+            document.body.classList.remove('india-mode');
+            slider.className = 'mode-toggle-slider world';
+            btnIndia.classList.remove('active');
+            btnWorld.classList.add('active');
+            title.textContent = '🌍 RoamWise';
+            subtitle.textContent = 'AI-Powered Travel Companion';
+
+            document.querySelector('.india-safety-nav').style.display = 'none';
+
+            const continentSel = document.getElementById('continent-select');
+            if (continentSel.value) loadCountries();
+            document.getElementById('compare-header').textContent = '⚖️ Compare Destinations';
+            document.getElementById('compare-desc').textContent = 'Compare 2–4 countries side by side';
+            document.getElementById('compare-label').textContent = 'Select Countries (2–4)';
+        }
+
+        document.querySelectorAll('.result-container').forEach(el => el.innerHTML = '');
+        document.getElementById('chat-messages').innerHTML = '';
+
+        const activeSection = document.querySelector('.section.active');
+        if (activeSection) {
+            const id = activeSection.id.replace('section-', '');
+            if ((id === 'safety' && mode === 'india') || (id === 'india-safety' && mode === 'world')) {
+                const tpBtn = document.querySelector('[data-section="travel-plan"]');
+                showSection('travel-plan', tpBtn);
+            }
+        }
+    }
+
+    function populateIndiaCompare() {
+        const sel = document.getElementById('compare-countries');
+        sel.innerHTML = '';
+        const states = [
+            "Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh","Goa","Gujarat",
+            "Haryana","Himachal Pradesh","Jharkhand","Karnataka","Kerala","Madhya Pradesh",
+            "Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland","Odisha","Punjab",
+            "Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura","Uttar Pradesh",
+            "Uttarakhand","West Bengal","Delhi","Jammu and Kashmir","Ladakh","Puducherry",
+            "Andaman and Nicobar Islands","Goa","Lakshadweep"
+        ];
+        const unique = [...new Set(states)].sort();
+        unique.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s; opt.textContent = s;
+            sel.appendChild(opt);
+        });
+    }
 
     // ══════════════════════════════════════════
     // Helpers
@@ -1021,7 +1319,48 @@
         return sel ? sel.value : '';
     }
 
-    function requireCountry() {
+    function getState() {
+        const sel = document.getElementById('state-select');
+        return sel ? sel.value : '';
+    }
+
+    function getCity() {
+        const sel = document.getElementById('city-select');
+        return sel ? sel.value : '';
+    }
+
+    function getDestination() {
+        if (currentMode === 'india') {
+            return getState();
+        }
+        return getCountry();
+    }
+
+    /** Returns a user-friendly display name for the current India destination */
+    function getIndiaDisplayName() {
+        const state = getState();
+        const city = getCity();
+        if (city && state) return `${city}, ${state}`;
+        return state || '';
+    }
+
+    /** Returns the best display name for the current destination regardless of mode */
+    function getDisplayDestination() {
+        if (currentMode === 'india') {
+            return getIndiaDisplayName();
+        }
+        return getCountry();
+    }
+
+    function requireDestination() {
+        if (currentMode === 'india') {
+            const s = getState();
+            if (!s) {
+                showAlert('Please select a state from the sidebar first.', 'warning');
+                return null;
+            }
+            return s;
+        }
         const c = getCountry();
         if (!c) {
             showAlert('Please select a country from the sidebar first.', 'warning');
@@ -1033,7 +1372,6 @@
     function showAlert(msg, type = 'info') {
         const icons = { success: '✅', warning: '⚠️', danger: '❌', info: 'ℹ️' };
         const html = `<div class="alert alert-${type}">${icons[type] || ''} ${escapeHtml(msg)}</div>`;
-        // Find the active section's result container or just alert
         const activeSection = document.querySelector('.section.active');
         const resultDiv = activeSection?.querySelector('.result-container');
         if (resultDiv) {
@@ -1144,7 +1482,6 @@
         const section = document.getElementById('section-' + id);
         if (section) section.classList.add('active');
         if (navBtn) navBtn.classList.add('active');
-        // Close mobile sidebar
         document.getElementById('sidebar').classList.remove('open');
         document.getElementById('overlay').classList.remove('open');
     }
@@ -1159,7 +1496,7 @@
     }
 
     // ══════════════════════════════════════════
-    // Init: Load Continents & Date
+    // Init: Load Continents, Regions & Date
     // ══════════════════════════════════════════
 
     async function initApp() {
@@ -1177,6 +1514,18 @@
         } catch (e) {
             console.error('Failed to load continents:', e);
         }
+
+        try {
+            const data = await apiGet('/india/regions');
+            const sel = document.getElementById('region-select');
+            data.regions.forEach(r => {
+                const opt = document.createElement('option');
+                opt.value = r; opt.textContent = r;
+                sel.appendChild(opt);
+            });
+        } catch (e) {
+            console.error('Failed to load India regions:', e);
+        }
     }
 
     async function loadCountries() {
@@ -1193,14 +1542,61 @@
                 opt.value = c; opt.textContent = c;
                 sel.appendChild(opt);
             });
-            // Also populate the compare multi-select
-            populateCompareCountries(data.countries);
+            if (currentMode === 'world') populateCompareCountries(data.countries);
         } catch (e) {
             sel.innerHTML = '<option value="">Error loading</option>';
         }
     }
 
+    async function loadIndiaStates() {
+        const region = document.getElementById('region-select').value;
+        const stateSel = document.getElementById('state-select');
+        const citySel = document.getElementById('city-select');
+        stateSel.innerHTML = '<option value="">Loading…</option>';
+        citySel.innerHTML = '<option value="">All cities / state-wide</option>';
+        if (!region) { stateSel.innerHTML = '<option value="">Select state…</option>'; return; }
+
+        try {
+            const data = await apiGet(`/india/states/${region}`);
+            stateSel.innerHTML = '<option value="">Select state…</option>';
+            data.states.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s; opt.textContent = s;
+                stateSel.appendChild(opt);
+            });
+        } catch (e) {
+            stateSel.innerHTML = '<option value="">Error loading</option>';
+        }
+    }
+
+    async function onStateChange() {
+        const state = document.getElementById('state-select').value;
+        const citySel = document.getElementById('city-select');
+        citySel.innerHTML = '<option value="">All cities / state-wide</option>';
+        document.querySelectorAll('.result-container').forEach(el => el.innerHTML = '');
+        document.getElementById('chat-messages').innerHTML = '';
+
+        if (!state) return;
+
+        try {
+            const data = await apiGet(`/india/cities/${state}`);
+            data.cities.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c; opt.textContent = c;
+                citySel.appendChild(opt);
+            });
+        } catch (e) {
+            console.error('Failed to load cities:', e);
+        }
+    }
+
+    function onCityChange() {
+        document.querySelectorAll('.result-container').forEach(el => el.innerHTML = '');
+        document.getElementById('chat-messages').innerHTML = '';
+    }
+
     function populateCompareCountries(countries) {
+        if (currentMode === 'india') return;
         const sel = document.getElementById('compare-countries');
         sel.innerHTML = '';
         countries.forEach(c => {
@@ -1211,9 +1607,7 @@
     }
 
     function onCountryChange() {
-        // Clear previous results
         document.querySelectorAll('.result-container').forEach(el => el.innerHTML = '');
-        // Clear chat
         document.getElementById('chat-messages').innerHTML = '';
     }
 
@@ -1222,15 +1616,23 @@
     // ══════════════════════════════════════════
 
     async function fetchTravelPlan() {
-        const country = requireCountry();
-        if (!country) return;
+        const dest = requireDestination();
+        if (!dest) return;
 
+        const displayName = getDisplayDestination();
         setButtonLoading('btn-travel-plan', true);
-        showLoading('travel-plan-result', `Generating travel plan for ${country}…`);
+        showLoading('travel-plan-result', `Generating travel plan for ${displayName}…`);
 
         try {
-            const data = await apiGet(`/travel/full/${country}`);
-            renderTravelPlan(data);
+            if (currentMode === 'india') {
+                const city = getCity();
+                const url = `/india/travel/full/${encodeURIComponent(dest)}${city ? '?city=' + encodeURIComponent(city) : ''}`;
+                const data = await apiGet(url);
+                renderIndiaTravelPlan(data);
+            } else {
+                const data = await apiGet(`/travel/full/${dest}`);
+                renderTravelPlan(data);
+            }
         } catch (e) {
             document.getElementById('travel-plan-result').innerHTML =
                 `<div class="alert alert-danger">❌ ${escapeHtml(e.message)}</div>`;
@@ -1247,7 +1649,6 @@
 
         let html = '';
 
-        // Metrics
         const rateStr = conv.rate ? `1 ${info.currency_code} = ₹${Number(conv.rate).toFixed(2)}` : 'N/A';
         html += `
             <div class="metrics-grid">
@@ -1269,7 +1670,6 @@
             html += `<div class="alert alert-warning">⚠️ AI plan error: ${escapeHtml(data.travel_plan_error)}</div>`;
         }
 
-        // Cities
         if (plan.cities && plan.cities.length) {
             html += `<h3 style="margin:20px 0 12px">🏙️ Must-Visit Cities</h3>`;
             plan.cities.forEach(city => {
@@ -1286,7 +1686,6 @@
             });
         }
 
-        // Foods
         if (plan.foods && plan.foods.length) {
             html += `<h3 style="margin:20px 0 12px">🍽️ Must-Try Foods</h3>`;
             plan.foods.forEach(food => {
@@ -1294,6 +1693,96 @@
                     <strong>${escapeHtml(food.name)}</strong> – ${escapeHtml(food.description)}
                 </div>`;
             });
+        }
+
+        if (plan.tips && plan.tips.length) {
+            html += `<h3 style="margin:20px 0 12px">💡 Travel Tips</h3>`;
+            html += `<div class="card"><ul style="margin-left:18px">` +
+                plan.tips.map(t => `<li style="margin-bottom:6px">${escapeHtml(t)}</li>`).join('') +
+                '</ul></div>';
+        }
+
+        container.innerHTML = html;
+    }
+
+    function renderIndiaTravelPlan(data) {
+        const container = document.getElementById('travel-plan-result');
+        const info = data.info || {};
+        const plan = data.travel_plan || {};
+
+        let html = '';
+
+        // Build metrics – NO currency card for India domestic
+        html += `<div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="label">🏔️ State</div>
+                    <div class="value" style="font-size:1rem">${escapeHtml(info.state || 'N/A')}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">🗺️ Region</div>
+                    <div class="value" style="font-size:1rem">${escapeHtml(info.region || 'N/A')}</div>
+                </div>
+            </div>`;
+
+        if (data.city) {
+            html += `<div class="alert alert-info">📍 Focused on: <strong>${escapeHtml(data.city)}</strong></div>`;
+        }
+
+        if (data.travel_plan_error) {
+            html += `<div class="alert alert-warning">⚠️ AI plan error: ${escapeHtml(data.travel_plan_error)}</div>`;
+        }
+
+        // How to reach
+        if (plan.how_to_reach) {
+            const htr = plan.how_to_reach;
+            html += `<h3 style="margin:20px 0 12px">🚆 How to Reach</h3>`;
+            let reachContent = '';
+            if (htr.by_air) reachContent += `<p>✈️ <strong>By Air:</strong> ${escapeHtml(htr.by_air)}</p>`;
+            if (htr.by_train) reachContent += `<p>🚂 <strong>By Train:</strong> ${escapeHtml(htr.by_train)}</p>`;
+            if (htr.by_road) reachContent += `<p>🚗 <strong>By Road:</strong> ${escapeHtml(htr.by_road)}</p>`;
+            html += `<div class="card">${reachContent}</div>`;
+        }
+
+        if (plan.best_time_to_visit) {
+            html += `<div class="alert alert-info">🌸 <strong>Best Time to Visit:</strong> ${escapeHtml(plan.best_time_to_visit)}</div>`;
+        }
+
+        // Places
+        if (plan.places && plan.places.length) {
+            html += `<h3 style="margin:20px 0 12px">🏛️ Must-Visit Places</h3>`;
+            plan.places.forEach(place => {
+                let activities = '';
+                const placeActivities = plan.activities?.[place.name] || [];
+                if (placeActivities.length) {
+                    activities = `<div style="margin-top:10px"><strong>Activities:</strong><ul style="margin-left:18px; margin-top:4px">` +
+                        placeActivities.map(a =>
+                            `<li><strong>${escapeHtml(a.name)}</strong> – ${escapeHtml(a.description)} <span class="tag">${formatINR(a.price_inr)}</span></li>`
+                        ).join('') + '</ul></div>';
+                }
+                const typeTag = place.type ? `<span class="tag">${escapeHtml(place.type)}</span> ` : '';
+                html += buildAccordion(`📍 ${escapeHtml(place.name)} ${typeTag}`,
+                    `<p>${escapeHtml(place.reason)}</p>${activities}`);
+            });
+        }
+
+        // Foods
+        if (plan.foods && plan.foods.length) {
+            html += `<h3 style="margin:20px 0 12px">🍛 Must-Try Local Foods</h3>`;
+            plan.foods.forEach(food => {
+                const where = food.where_to_try ? ` — 📍 ${escapeHtml(food.where_to_try)}` : '';
+                const price = food.price_range_inr ? ` <span class="tag">₹${escapeHtml(food.price_range_inr)}</span>` : '';
+                html += `<div class="card" style="padding:14px 18px; margin-bottom:8px">
+                    <strong>${escapeHtml(food.name)}</strong> – ${escapeHtml(food.description)}${where}${price}
+                </div>`;
+            });
+        }
+
+        // Local transport
+        if (plan.local_transport && plan.local_transport.length) {
+            html += `<h3 style="margin:20px 0 12px">🚌 Local Transport</h3>`;
+            html += `<div class="card"><div style="display:flex;flex-wrap:wrap;gap:6px">` +
+                plan.local_transport.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('') +
+                '</div></div>';
         }
 
         // Tips
@@ -1312,19 +1801,31 @@
     // ══════════════════════════════════════════
 
     async function fetchItinerary() {
-        const country = requireCountry();
-        if (!country) return;
+        const dest = requireDestination();
+        if (!dest) return;
 
+        const displayName = getDisplayDestination();
         setButtonLoading('btn-itinerary', true);
-        showLoading('itinerary-result', `Creating your itinerary for ${country}…`);
+        showLoading('itinerary-result', `Creating your itinerary for ${displayName}…`);
 
         try {
-            const result = await apiPost('/travel/itinerary', {
-                country,
-                num_days: parseInt(document.getElementById('itin-days').value),
-                travel_style: document.getElementById('itin-style').value,
-                budget_level: document.getElementById('itin-budget').value
-            });
+            let result;
+            if (currentMode === 'india') {
+                result = await apiPost('/india/travel/itinerary', {
+                    state: dest,
+                    city: getCity() || null,
+                    num_days: parseInt(document.getElementById('itin-days').value),
+                    travel_style: document.getElementById('itin-style').value,
+                    budget_level: document.getElementById('itin-budget').value
+                });
+            } else {
+                result = await apiPost('/travel/itinerary', {
+                    country: dest,
+                    num_days: parseInt(document.getElementById('itin-days').value),
+                    travel_style: document.getElementById('itin-style').value,
+                    budget_level: document.getElementById('itin-budget').value
+                });
+            }
             renderItinerary(result.data);
         } catch (e) {
             document.getElementById('itinerary-result').innerHTML =
@@ -1340,7 +1841,6 @@
 
         let html = '';
 
-        // Summary
         html += `
             <div class="metrics-grid">
                 <div class="metric-card">
@@ -1357,16 +1857,20 @@
                 </div>
             </div>`;
 
+        if (data.local_transport_tips) {
+            html += `<div class="alert alert-info">🚌 <strong>Local Transport:</strong> ${escapeHtml(data.local_transport_tips)}</div>`;
+        }
+
         if (data.packing_essentials?.length) {
             html += `<div class="alert alert-info">🎒 <strong>Packing Essentials:</strong> ${data.packing_essentials.map(escapeHtml).join(', ')}</div>`;
         }
 
-        // Days
         (data.itinerary || []).forEach(day => {
             const m = day.morning || {};
             const a = day.afternoon || {};
             const e = day.evening || {};
             const meals = day.meals || {};
+            const areaLabel = day.area || day.city || '';
 
             const content = `
                 <div class="form-row" style="gap:20px">
@@ -1394,7 +1898,7 @@
                 </div>`;
 
             html += buildAccordion(
-                `📍 Day ${day.day}: ${escapeHtml(day.title || '')} – ${escapeHtml(day.city || '')}`,
+                `📍 Day ${day.day}: ${escapeHtml(day.title || '')} – ${escapeHtml(areaLabel)}`,
                 content
             );
         });
@@ -1407,8 +1911,8 @@
     // ══════════════════════════════════════════
 
     async function sendChat() {
-        const country = requireCountry();
-        if (!country) return;
+        const dest = requireDestination();
+        if (!dest) return;
         const input = document.getElementById('chat-input');
         const msg = input.value.trim();
         if (!msg) return;
@@ -1418,17 +1922,26 @@
         input.value = '';
         msgArea.scrollTop = msgArea.scrollHeight;
 
-        // Typing indicator
         const typingId = 'typing-' + Date.now();
         msgArea.innerHTML += `<div class="chat-bubble assistant" id="${typingId}"><span class="spinner spinner-accent" style="width:14px;height:14px;border-width:2px"></span> Thinking…</div>`;
         msgArea.scrollTop = msgArea.scrollHeight;
 
         try {
-            const result = await apiPost('/travel/chat', {
-                country,
-                message: msg,
-                session_id: chatSessionId
-            });
+            let result;
+            if (currentMode === 'india') {
+                result = await apiPost('/india/travel/chat', {
+                    state: dest,
+                    city: getCity() || null,
+                    message: msg,
+                    session_id: chatSessionId
+                });
+            } else {
+                result = await apiPost('/travel/chat', {
+                    country: dest,
+                    message: msg,
+                    session_id: chatSessionId
+                });
+            }
             const el = document.getElementById(typingId);
             if (el) el.textContent = result.response || 'No response.';
         } catch (e) {
@@ -1448,19 +1961,31 @@
     // ══════════════════════════════════════════
 
     async function fetchBudget() {
-        const country = requireCountry();
-        if (!country) return;
+        const dest = requireDestination();
+        if (!dest) return;
 
+        const displayName = getDisplayDestination();
         setButtonLoading('btn-budget', true);
-        showLoading('budget-result', 'Calculating your budget…');
+        showLoading('budget-result', `Calculating budget for ${displayName}…`);
 
         try {
-            const result = await apiPost('/travel/budget', {
-                country,
-                num_days: parseInt(document.getElementById('budget-days').value),
-                num_travelers: parseInt(document.getElementById('budget-travelers').value),
-                travel_style: document.getElementById('budget-style').value
-            });
+            let result;
+            if (currentMode === 'india') {
+                result = await apiPost('/india/travel/budget', {
+                    state: dest,
+                    city: getCity() || null,
+                    num_days: parseInt(document.getElementById('budget-days').value),
+                    num_travelers: parseInt(document.getElementById('budget-travelers').value),
+                    travel_style: document.getElementById('budget-style').value
+                });
+            } else {
+                result = await apiPost('/travel/budget', {
+                    country: dest,
+                    num_days: parseInt(document.getElementById('budget-days').value),
+                    num_travelers: parseInt(document.getElementById('budget-travelers').value),
+                    travel_style: document.getElementById('budget-style').value
+                });
+            }
             renderBudget(result.data);
         } catch (e) {
             document.getElementById('budget-result').innerHTML =
@@ -1491,11 +2016,9 @@
                 </div>
             </div>`;
 
-        // Breakdown
         const bd = data.breakdown || {};
         const cats = Object.entries(bd);
         if (cats.length) {
-            // Simple bar chart
             html += `<h3 style="margin:16px 0 10px">📊 Budget Distribution</h3>`;
             const totals = cats.map(([k, v]) => ({ name: k.replace(/_/g, ' '), total: v?.total || 0 }));
             const maxTotal = Math.max(...totals.map(t => t.total), 1);
@@ -1513,7 +2036,6 @@
                     </div>`;
             });
 
-            // Detail accordions
             html += `<h3 style="margin:20px 0 10px">📋 Detailed Breakdown</h3>`;
             cats.forEach(([cat, details]) => {
                 if (!details || typeof details !== 'object') return;
@@ -1546,7 +2068,6 @@
             });
         }
 
-        // Tips
         if (data.money_saving_tips?.length) {
             html += `<h3 style="margin:16px 0 10px">💡 Money Saving Tips</h3><div class="card"><ul style="margin-left:18px">`;
             data.money_saving_tips.forEach(t => html += `<li>${escapeHtml(t)}</li>`);
@@ -1557,15 +2078,15 @@
     }
 
     // ══════════════════════════════════════════
-    // Safety & Visa
+    // Safety & Visa (International)
     // ══════════════════════════════════════════
 
     async function fetchAdvisory() {
-        const country = requireCountry();
-        if (!country) return;
+        const country = getCountry();
+        if (!country) { showAlert('Please select a country first.', 'warning'); return; }
 
         setButtonLoading('btn-advisory', true);
-        showLoading('safety-result', 'Fetching travel advisory…');
+        showLoading('safety-result', `Fetching travel advisory for ${country}…`);
 
         try {
             const result = await apiPost('/travel/advisory', {
@@ -1595,7 +2116,6 @@
 
         html += scoreBar(score, `Safety Score: ${score}/10`);
 
-        // Visa
         const visa = data.visa_requirements || {};
         html += `<h3 style="margin:20px 0 12px">🛂 Visa Requirements</h3>
             <div class="metrics-grid">
@@ -1611,7 +2131,6 @@
             html += '</ul></div>';
         }
 
-        // Health
         if (data.health_advisories?.length) {
             html += `<h3 style="margin:16px 0 10px">🏥 Health Advisories</h3><div class="card">`;
             data.health_advisories.forEach(h => {
@@ -1621,6 +2140,73 @@
                 } else {
                     html += `<p>• ${escapeHtml(h)}</p>`;
                 }
+            });
+            html += '</div>';
+        }
+
+        const emerg = data.emergency_numbers || {};
+        if (Object.keys(emerg).length) {
+            html += `<h3 style="margin:16px 0 10px">📞 Emergency Numbers</h3><div class="card">`;
+            Object.entries(emerg).forEach(([k, v]) => {
+                html += `<p><strong>${k.replace(/_/g, ' ')}:</strong> ${escapeHtml(v)}</p>`;
+            });
+            html += '</div>';
+        }
+
+        if (data.scams_to_watch?.length) {
+            html += `<h3 style="margin:16px 0 10px">⚠️ Scams to Watch</h3><div class="card"><ul style="margin-left:18px">`;
+            data.scams_to_watch.forEach(s => html += `<li>${escapeHtml(s)}</li>`);
+            html += '</ul></div>';
+        }
+
+        container.innerHTML = html;
+    }
+
+    // ══════════════════════════════════════════
+    // Safety (India Domestic)
+    // ══════════════════════════════════════════
+
+    async function fetchIndiaAdvisory() {
+        const state = getState();
+        if (!state) { showAlert('Please select a state first.', 'warning'); return; }
+
+        const displayName = getIndiaDisplayName();
+        setButtonLoading('btn-india-advisory', true);
+        showLoading('india-safety-result', `Fetching safety info for ${displayName}…`);
+
+        try {
+            const result = await apiPost('/india/travel/advisory', {
+                state,
+                city: getCity() || null
+            });
+            renderIndiaAdvisory(result.data);
+        } catch (e) {
+            document.getElementById('india-safety-result').innerHTML =
+                `<div class="alert alert-danger">❌ ${escapeHtml(e.message)}</div>`;
+        } finally {
+            setButtonLoading('btn-india-advisory', false);
+        }
+    }
+
+    function renderIndiaAdvisory(data) {
+        const container = document.getElementById('india-safety-result');
+        if (!data) { container.innerHTML = '<div class="alert alert-danger">No data.</div>'; return; }
+
+        const score = data.safety_score || 0;
+        const rating = data.safety_rating || 'Unknown';
+        const alertType = score >= 7 ? 'success' : score >= 4 ? 'warning' : 'danger';
+
+        let html = `<div class="alert alert-${alertType}">
+            <strong>Safety Rating: ${escapeHtml(rating)} (${score}/10)</strong>
+        </div>`;
+        html += scoreBar(score, `Safety Score: ${score}/10`);
+
+        // Connectivity
+        const conn = data.connectivity || {};
+        if (Object.keys(conn).length) {
+            html += `<h3 style="margin:16px 0 10px">📶 Connectivity</h3><div class="metrics-grid">`;
+            Object.entries(conn).forEach(([k, v]) => {
+                html += `<div class="metric-card"><div class="label">${escapeHtml(k.replace(/_/g, ' '))}</div><div class="value" style="font-size:0.9rem">${escapeHtml(v)}</div></div>`;
             });
             html += '</div>';
         }
@@ -1635,7 +2221,36 @@
             html += '</div>';
         }
 
-        // Scams
+        if (data.health_advisories?.length) {
+            html += `<h3 style="margin:16px 0 10px">🏥 Health Advisories</h3><div class="card">`;
+            data.health_advisories.forEach(h => {
+                if (typeof h === 'object') {
+                    const icon = h.mandatory ? '🔴 Required' : '🟡 Recommended';
+                    html += `<p>${icon} <strong>${escapeHtml(h.type || 'Health')}</strong>: ${escapeHtml(h.details || '')}</p>`;
+                } else {
+                    html += `<p>• ${escapeHtml(h)}</p>`;
+                }
+            });
+            html += '</div>';
+        }
+
+        if (data.cultural_etiquette?.length) {
+            html += `<h3 style="margin:16px 0 10px">🙏 Cultural Etiquette</h3><div class="card"><ul style="margin-left:18px">`;
+            data.cultural_etiquette.forEach(c => html += `<li>${escapeHtml(c)}</li>`);
+            html += '</ul></div>';
+        }
+
+        if (data.safety_tips?.length) {
+            html += `<h3 style="margin:16px 0 10px">🛡️ Safety Tips</h3>`;
+            data.safety_tips.forEach(tip => {
+                if (typeof tip === 'object') {
+                    let inner = '';
+                    (tip.tips || []).forEach(t => inner += `<p>• ${escapeHtml(t)}</p>`);
+                    html += buildAccordion(`${escapeHtml(tip.category || 'General')}`, inner);
+                }
+            });
+        }
+
         if (data.scams_to_watch?.length) {
             html += `<h3 style="margin:16px 0 10px">⚠️ Scams to Watch</h3><div class="card"><ul style="margin-left:18px">`;
             data.scams_to_watch.forEach(s => html += `<li>${escapeHtml(s)}</li>`);
@@ -1683,8 +2298,8 @@
 
         const formData = new FormData();
         formData.append('image', fileInput.files[0]);
-        const country = getCountry();
-        if (country) formData.append('country_hint', country);
+        const hint = currentMode === 'india' ? (getCity() || getState() || 'India') : getCountry();
+        if (hint) formData.append('country_hint', hint);
 
         try {
             const resp = await fetch(`${API_BASE}/landmark/identify`, {
@@ -1741,20 +2356,32 @@
     // ══════════════════════════════════════════
 
     async function fetchPackingList() {
-        const country = requireCountry();
-        if (!country) return;
+        const dest = requireDestination();
+        if (!dest) return;
 
+        const displayName = getDisplayDestination();
         setButtonLoading('btn-packing', true);
-        showLoading('packing-result', 'Creating your packing list…');
+        showLoading('packing-result', `Creating packing list for ${displayName}…`);
 
         const dateVal = document.getElementById('packing-date').value;
         try {
-            const result = await apiPost('/travel/packing-list', {
-                country,
-                num_days: parseInt(document.getElementById('packing-days').value),
-                travel_style: document.getElementById('packing-style').value,
-                travel_dates: dateVal || null
-            });
+            let result;
+            if (currentMode === 'india') {
+                result = await apiPost('/india/travel/packing-list', {
+                    state: dest,
+                    city: getCity() || null,
+                    num_days: parseInt(document.getElementById('packing-days').value),
+                    travel_style: document.getElementById('packing-style').value,
+                    travel_dates: dateVal || null
+                });
+            } else {
+                result = await apiPost('/travel/packing-list', {
+                    country: dest,
+                    num_days: parseInt(document.getElementById('packing-days').value),
+                    travel_style: document.getElementById('packing-style').value,
+                    travel_dates: dateVal || null
+                });
+            }
             renderPackingList(result.data);
         } catch (e) {
             document.getElementById('packing-result').innerHTML =
@@ -1810,18 +2437,23 @@
 
     async function fetchComparison() {
         const sel = document.getElementById('compare-countries');
-        const countries = Array.from(sel.selectedOptions).map(o => o.value);
+        const selected = Array.from(sel.selectedOptions).map(o => o.value);
         const criteria = getSelectedChips('compare-criteria');
 
-        if (countries.length < 2) { showAlert('Select at least 2 countries.', 'warning'); return; }
+        if (selected.length < 2) { showAlert('Select at least 2 destinations.', 'warning'); return; }
         if (!criteria.length) { showAlert('Select at least 1 criterion.', 'warning'); return; }
 
         setButtonLoading('btn-compare', true);
         showLoading('compare-result', 'Comparing destinations…');
 
         try {
-            const result = await apiPost('/travel/compare', { countries, criteria });
-            renderComparison(result.data, countries);
+            let result;
+            if (currentMode === 'india') {
+                result = await apiPost('/india/travel/compare', { destinations: selected, criteria });
+            } else {
+                result = await apiPost('/travel/compare', { countries: selected, criteria });
+            }
+            renderComparison(result.data, selected);
         } catch (e) {
             document.getElementById('compare-result').innerHTML =
                 `<div class="alert alert-danger">❌ ${escapeHtml(e.message)}</div>`;
@@ -1830,22 +2462,21 @@
         }
     }
 
-    function renderComparison(data, countries) {
+    function renderComparison(data, destinations) {
         const container = document.getElementById('compare-result');
         if (!data) { container.innerHTML = '<div class="alert alert-danger">No data.</div>'; return; }
 
         let html = `<div class="alert alert-success">🏆 <strong>Overall Winner: ${escapeHtml(data.overall_winner || 'N/A')}</strong> — ${escapeHtml(data.winner_reason || '')}</div>`;
 
-        // Table
         const table = data.comparison_table || {};
         if (Object.keys(table).length) {
             html += `<table class="comparison-table"><thead><tr><th>Criteria</th>`;
-            countries.forEach(c => html += `<th>${escapeHtml(c)}</th>`);
+            destinations.forEach(c => html += `<th>${escapeHtml(c)}</th>`);
             html += '</tr></thead><tbody>';
 
             Object.entries(table).forEach(([criterion, scores]) => {
                 html += `<tr><td style="font-weight:600">${escapeHtml(criterion)}</td>`;
-                countries.forEach(c => {
+                destinations.forEach(c => {
                     const d = scores[c] || {};
                     const sc = typeof d === 'object' ? d.score : d;
                     const det = typeof d === 'object' ? (d.details || '') : '';
@@ -1860,7 +2491,6 @@
             html += '</tbody></table>';
         }
 
-        // Best For
         const bf = data.best_for || {};
         if (Object.keys(bf).length) {
             html += `<h3 style="margin:20px 0 10px">🏅 Best For</h3><div class="metrics-grid">`;
@@ -1882,14 +2512,20 @@
     // ══════════════════════════════════════════
 
     async function fetchPhrases() {
-        const country = requireCountry();
-        if (!country) return;
+        const dest = requireDestination();
+        if (!dest) return;
 
+        const displayName = getDisplayDestination();
         setButtonLoading('btn-phrases', true);
-        showLoading('phrases-result', `Loading phrases for ${country}…`);
+        showLoading('phrases-result', `Loading phrases for ${displayName}…`);
 
         try {
-            const result = await apiPost('/travel/phrases', { country });
+            let result;
+            if (currentMode === 'india') {
+                result = await apiPost('/india/travel/phrases', { state: dest });
+            } else {
+                result = await apiPost('/travel/phrases', { country: dest });
+            }
             renderPhrases(result.data);
         } catch (e) {
             document.getElementById('phrases-result').innerHTML =
@@ -1904,6 +2540,11 @@
         if (!data) { container.innerHTML = '<div class="alert alert-danger">No data.</div>'; return; }
 
         let html = `<div class="alert alert-info">🌐 <strong>Primary Language:</strong> ${escapeHtml(data.primary_language || 'Unknown')}</div>`;
+
+        if (data.secondary_languages?.length) {
+            html += `<div class="alert alert-info">🗣️ <strong>Also spoken:</strong> ${data.secondary_languages.map(escapeHtml).join(', ')}</div>`;
+        }
+
         if (data.greeting_culture) {
             html += `<div class="card" style="margin-bottom:16px"><strong>🤝 Greeting Culture:</strong> ${escapeHtml(data.greeting_culture)}</div>`;
         }
@@ -1913,10 +2554,12 @@
             let inner = '';
             (phrases || []).forEach(p => {
                 if (typeof p === 'object') {
+                    const hindiLine = p.hindi_equivalent ? `<div style="font-size:0.78rem; color:var(--text-muted)">Hindi: ${escapeHtml(p.hindi_equivalent)}</div>` : '';
                     inner += `<div class="phrase-card">
                         <div class="english">${escapeHtml(p.english || '')}</div>
                         <div class="local">🗣️ ${escapeHtml(p.local || '')}</div>
                         ${p.pronunciation ? `<div class="pronunciation">🔊 ${escapeHtml(p.pronunciation)}</div>` : ''}
+                        ${hindiLine}
                     </div>`;
                 } else {
                     inner += `<p style="margin-bottom:6px">• ${escapeHtml(p)}</p>`;
@@ -1939,15 +2582,25 @@
     // ══════════════════════════════════════════
 
     async function fetchWeather() {
-        const country = requireCountry();
-        if (!country) return;
+        const dest = requireDestination();
+        if (!dest) return;
 
+        const displayName = getDisplayDestination();
         setButtonLoading('btn-weather', true);
         const month = document.getElementById('weather-month').value;
-        showLoading('weather-result', `Analyzing ${country} weather for ${month}…`);
+        showLoading('weather-result', `Analyzing ${displayName} weather for ${month}…`);
 
         try {
-            const result = await apiPost('/travel/weather-activities', { country, month });
+            let result;
+            if (currentMode === 'india') {
+                result = await apiPost('/india/travel/weather-activities', {
+                    state: dest,
+                    city: getCity() || null,
+                    month
+                });
+            } else {
+                result = await apiPost('/travel/weather-activities', { country: dest, month });
+            }
             renderWeather(result.data);
         } catch (e) {
             document.getElementById('weather-result').innerHTML =
